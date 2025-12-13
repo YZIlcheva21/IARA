@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IARA.Domain", "IARA.Domain\IARA.Domain.csproj", "{306AC4CE-ACA1-4D2E-A79A-9B27BBFB3D1E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IARA.API", "IARA.API\IARA.API.csproj", "{38F1AD18-0C10-4148-9347-3AB920C4A648}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IARA.Web", "IARA.Web\IARA.Web.csproj", "{748F7615-4C57-4B97-908C-7960AE49EDA4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{306AC4CE-ACA1-4D2E-A79A-9B27BBFB3D1E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{306AC4CE-ACA1-4D2E-A79A-9B27BBFB3D1E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{306AC4CE-ACA1-4D2E-A79A-9B27BBFB3D1E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{306AC4CE-ACA1-4D2E-A79A-9B27BBFB3D1E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{38F1AD18-0C10-4148-9347-3AB920C4A648}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{38F1AD18-0C10-4148-9347-3AB920C4A648}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{38F1AD18-0C10-4148-9347-3AB920C4A648}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{38F1AD18-0C10-4148-9347-3AB920C4A648}.Release|Any CPU.Build.0 = Release|Any CPU
+		{748F7615-4C57-4B97-908C-7960AE49EDA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{748F7615-4C57-4B97-908C-7960AE49EDA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{748F7615-4C57-4B97-908C-7960AE49EDA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{748F7615-4C57-4B97-908C-7960AE49EDA4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,13 @@
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\bin\Debug\net8.0\IARA.Domain.deps.json
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\bin\Debug\net8.0\IARA.Domain.dll
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\bin\Debug\net8.0\IARA.Domain.pdb
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\obj\Debug\net8.0\IARA.Domain.csproj.AssemblyReference.cache
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\obj\Debug\net8.0\IARA.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\obj\Debug\net8.0\IARA.Domain.AssemblyInfoInputs.cache
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\obj\Debug\net8.0\IARA.Domain.AssemblyInfo.cs
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\obj\Debug\net8.0\IARA.Domain.csproj.CoreCompileInputs.cache
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\obj\Debug\net8.0\IARA.Domain.sourcelink.json
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\obj\Debug\net8.0\IARA.Domain.dll
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\obj\Debug\net8.0\refint\IARA.Domain.dll
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\obj\Debug\net8.0\IARA.Domain.pdb
+C:\Users\7\Downloads\IARA\IARA_System\IARA.Domain\obj\Debug\net8.0\ref\IARA.Domain.dll
