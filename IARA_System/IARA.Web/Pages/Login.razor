@@ -1,0 +1,70 @@
+@page "/login"
+@using IARA.Web.Services
+@inject AuthService AuthService
+@inject NavigationManager NavManager
+@inject IJSRuntime JS
+
+<div class="container py-5">
+    <div class="card shadow-lg border-0 rounded-4 mx-auto" style="max-width: 400px;">
+        <div class="card-body p-5">
+            <h2 class="text-center text-primary mb-4 fw-bold">ИАРА ВХОД</h2>
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+            <div class="alert alert-danger">@errorMessage</div>
+            }
+            <div class="mb-3">
+                <label class="form-label fw-bold">Потребител</label>
+                <input @bind="username" class="form-control p-3" placeholder="Въведете потребителско име" />
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold">Парола</label>
+                <input @bind="password" type="password" class="form-control p-3" placeholder="Въведете парола" />
+            </div>
+            <button class="btn btn-primary w-100 p-3 fw-bold rounded-pill" @onclick="HandleLogin" disabled="@isLoading">
+                @if (isLoading)
+                {
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                ВЛЕЗ
+            </button>
+            <div class="mt-3 text-center">
+                <small class="text-muted">Тестови данни: admin / Admin123!</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string username = "admin";
+    private string password = "Admin123!";
+    private string? errorMessage;
+    private bool isLoading = false;
+
+    private async Task HandleLogin()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            
+            var success = await AuthService.LoginAsync(username, password);
+            if (success)
+            {
+                await JS.InvokeVoidAsync("console.log", "Успешен вход!");
+                NavManager.NavigateTo("/");
+            }
+            else
+            {
+                errorMessage = "Невалидно потребителско име или парола!";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Грешка при вход: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}

@@ -1,0 +1,181 @@
+@page "/ships"
+@using System.Net.Http.Json
+@using System.Linq
+@inject HttpClient Http
+
+<div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="fw-bold"><span class="oi oi-ship me-2"></span> Регистър на корабите</h1>
+        <button class="btn btn-primary rounded-pill px-4">+ Нов Кораб</button>
+    </div>
+
+    <div class="mb-3">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Търсене по име, номер, позивна..." @bind="searchTerm" @bind:event="oninput" />
+            <button class="btn btn-outline-primary" @onclick="OnSearch">Търси</button>
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+    <div class="text-center p-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2">Зареждане на регистъра...</p>
+    </div>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+    <div class="alert alert-danger">@errorMessage</div>
+    }
+    else if (ships == null || ships.Length == 0)
+    {
+    <div class="alert alert-info text-center">Няма намерени кораби</div>
+    }
+    else
+    {
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        @foreach (var ship in ships)
+        {
+        <div class="col">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="bg-light p-2 rounded text-primary">
+                            <span class="oi oi-badge"></span>
+                        </div>
+                        <span class="badge bg-secondary">@ship.InternationalNumber</span>
+                    </div>
+                    <h5 class="card-title fw-bold">@ship.Name</h5>
+                    <p class="card-text text-muted small mb-2">
+                        <span class="oi oi-radio"></span> Позивна: @(ship.CallSign ?? "Няма")
+                    </p>
+                    @if (!string.IsNullOrEmpty(ship.ActiveLicenseNumber))
+                    {
+                    <p class="mb-2">
+                        <span class="badge bg-success">Разрешително: @ship.ActiveLicenseNumber</span>
+                    </p>
+                    }
+                    @if (!string.IsNullOrEmpty(ship.OwnerName))
+                    {
+                    <p class="text-muted small mb-2">Собственик: @ship.OwnerName</p>
+                    }
+                    <hr />
+                    <div class="row text-center">
+                        <div class="col border-end">
+                            <div class="small text-muted">Дължина</div>
+                            <div class="fw-bold">@(ship.Length?.ToString("F1") ?? "N/A") м</div>
+                        </div>
+                        <div class="col">
+                            <div class="small text-muted">Мощност</div>
+                            <div class="fw-bold">@(ship.EnginePower?.ToString("F0") ?? "N/A") kW</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        }
+    </div>
+    
+    @if (totalPages > 1)
+    {
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                <a class="page-link" href="#" @onclick="() => ChangePage(currentPage - 1)" @onclick:preventDefault>Предишна</a>
+            </li>
+            @for (int i = Math.Max(1, currentPage - 2); i <= Math.Min(totalPages, currentPage + 2); i++)
+            {
+            <li class="page-item @(i == currentPage ? "active" : "")">
+                <a class="page-link" href="#" @onclick="() => ChangePage(i)" @onclick:preventDefault>@i</a>
+            </li>
+            }
+            <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                <a class="page-link" href="#" @onclick="() => ChangePage(currentPage + 1)" @onclick:preventDefault>Следваща</a>
+            </li>
+        </ul>
+    </nav>
+    }
+    }
+</div>
+
+@code {
+private ShipDto[]? ships;
+private bool isLoading = true;
+private string? errorMessage;
+private int currentPage = 1;
+private int totalPages = 1;
+private int totalCount = 0;
+private string searchTerm = "";
+
+protected override async Task OnInitializedAsync()
+{
+await LoadShips();
+}
+
+private async Task LoadShips()
+{
+try
+{
+isLoading = true;
+errorMessage = null;
+var queryParams = new List<string> { $"page={currentPage}", "pageSize=20", "activeOnly=true" };
+if (!string.IsNullOrEmpty(searchTerm))
+{
+queryParams.Add($"search={System.Uri.EscapeDataString(searchTerm)}");
+}
+var queryString = string.Join("&", queryParams);
+var response = await Http.GetFromJsonAsync<ShipResponse>($"api/ShipRegistry?{queryString}");
+if (response != null)
+{
+ships = response.Ships?.ToArray();
+totalPages = response.TotalPages;
+totalCount = response.TotalCount;
+}
+}
+catch (Exception ex)
+{
+errorMessage = $"Грешка при зареждане: {ex.Message}";
+}
+finally
+{
+isLoading = false;
+}
+}
+
+private async Task OnSearch()
+{
+currentPage = 1;
+await LoadShips();
+}
+
+private async Task ChangePage(int page)
+{
+currentPage = page;
+await LoadShips();
+}
+
+public class ShipResponse
+{
+public ShipDto[]? Ships { get; set; }
+public int TotalCount { get; set; }
+public int Page { get; set; }
+public int PageSize { get; set; }
+public int TotalPages { get; set; }
+}
+
+public class ShipDto
+{
+public int Id { get; set; }
+public string Name { get; set; } = "";
+public string InternationalNumber { get; set; } = "";
+public string? CallSign { get; set; }
+public string? Marking { get; set; }
+public decimal? Length { get; set; }
+public decimal? Width { get; set; }
+public decimal? EnginePower { get; set; }
+public string? OwnerName { get; set; }
+public string? CaptainName { get; set; }
+public string? ActiveLicenseNumber { get; set; }
+public bool IsActive { get; set; }
+}
+}

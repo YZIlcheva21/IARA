@@ -1,0 +1,108 @@
+@page "/"
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<PageTitle>Табло - ИАРА</PageTitle>
+
+<div class="container-fluid p-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-4 text-primary fw-bold">Добре дошли в ИАРА</h1>
+            <p class="lead text-muted">Изпълнителна Агенция по Рибарство и Аквакултури</p>
+            <hr class="my-4">
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 h-100 text-center">
+                <div class="card-body">
+                    <div class="display-4 text-primary mb-3">⛴</div>
+                    <h5 class="card-title">Регистър Кораби</h5>
+                    <p class="card-text small text-muted">Управление на риболовни кораби</p>
+                    <a href="/ships" class="btn btn-primary w-100">Отвори</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 h-100 text-center">
+                <div class="card-body">
+                    <div class="display-4 text-success mb-3">📄</div>
+                    <h5 class="card-title">Разрешителни</h5>
+                    <p class="card-text small text-muted">Управление на разрешителни за риболов</p>
+                    <a href="/licenses" class="btn btn-success w-100">Отвори</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 h-100 text-center">
+                <div class="card-body">
+                    <div class="display-4 text-info mb-3">🐟</div>
+                    <h5 class="card-title">Нов Улов</h5>
+                    <p class="card-text small text-muted">Регистрация на нов улов</p>
+                    <a href="/add-catch" class="btn btn-info w-100">Отвори</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 h-100 text-center">
+                <div class="card-body">
+                    <div class="display-4 text-warning mb-3">📊</div>
+                    <h5 class="card-title">Справки</h5>
+                    <p class="card-text small text-muted">Анализи и статистики</p>
+                    <a href="/reports" class="btn btn-warning w-100">Отвори</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Бързи Справки</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        <li class="mb-2">
+                            <a href="/reports" class="text-decoration-none">
+                                <span class="oi oi-chevron-right me-2"></span>
+                                Кораби с изтичащо разрешително
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="/reports" class="text-decoration-none">
+                                <span class="oi oi-chevron-right me-2"></span>
+                                Класация на рибари любители
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="/reports" class="text-decoration-none">
+                                <span class="oi oi-chevron-right me-2"></span>
+                                Анализ на улова по кораби
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="/reports" class="text-decoration-none">
+                                <span class="oi oi-chevron-right me-2"></span>
+                                Ефективност на горивото
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Системна Информация</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2"><strong>Версия:</strong> 1.0.0</p>
+                    <p class="mb-2"><strong>Статус:</strong> <span class="badge bg-success">Активна</span></p>
+                    <p class="mb-0"><strong>Последна актуализация:</strong> @DateTime.Now.ToString("dd.MM.yyyy HH:mm")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
