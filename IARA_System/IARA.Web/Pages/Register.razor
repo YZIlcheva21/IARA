@@ -1,0 +1,235 @@
+@page "/register"
+@layout AuthLayout
+@using IARA.Web.Services
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
+@inject AuthService AuthService
+@inject NavigationManager NavManager
+@inject IJSRuntime JS
+
+<PageTitle>Регистрация - ИАРА</PageTitle>
+
+<div class="auth-page-wrapper">
+    <div class="auth-background-decoration">
+        <div class="wave wave1"></div>
+        <div class="wave wave2"></div>
+        <div class="wave wave3"></div>
+    </div>
+    <div class="container py-5 position-relative" style="z-index: 2;">
+        <div class="card shadow-lg border-0 rounded-4 mx-auto auth-card" style="max-width: 520px;">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <div class="auth-logo mb-3">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="32" cy="32" r="30" fill="url(#oceanGrad2)"/>
+                            <path d="M32 20 L32 32 M32 32 L26 38 M32 32 L38 38" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            <defs>
+                                <linearGradient id="oceanGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#0a4d68"/>
+                                    <stop offset="50%" style="stop-color:#088395"/>
+                                    <stop offset="100%" style="stop-color:#05bfdb"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h2 class="text-center text-primary mb-2 fw-bold" style="font-size: 1.8rem; letter-spacing: 1px;">Регистрация</h2>
+                    <p class="text-muted mb-4" style="font-size: 0.95rem; font-weight: 500;">Създайте нов акаунт</p>
+                </div>
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+            <div class="alert alert-danger">@errorMessage</div>
+            }
+            @if (!string.IsNullOrEmpty(successMessage))
+            {
+            <div class="alert alert-success">@successMessage</div>
+            }
+            <EditForm Model="@registerModel" OnValidSubmit="HandleRegister" OnInvalidSubmit="HandleInvalidSubmit">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Потребителско име *</label>
+                    <InputText @bind-Value="registerModel.Username" class="@(string.IsNullOrEmpty(registerModel.Username) || registerModel.Username.Length < 3 ? "form-control p-3 is-invalid" : "form-control p-3")" placeholder="Въведете потребителско име (мин. 3 символа)" />
+                    <ValidationMessage For="@(() => registerModel.Username)" />
+                    @if (!string.IsNullOrEmpty(registerModel.Username) && registerModel.Username.Length < 3)
+                    {
+                    <div class="invalid-feedback d-block">Потребителското име трябва да бъде поне 3 символа</div>
+                    }
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Имейл *</label>
+                    <InputText @bind-Value="registerModel.Email" type="email" class="@(string.IsNullOrEmpty(registerModel.Email) || !registerModel.Email.Contains("@") ? "form-control p-3 is-invalid" : "form-control p-3")" placeholder="example@email.com" />
+                    <ValidationMessage For="@(() => registerModel.Email)" />
+                    @if (!string.IsNullOrEmpty(registerModel.Email) && !registerModel.Email.Contains("@"))
+                    {
+                    <div class="invalid-feedback d-block">Моля въведете валиден имейл адрес</div>
+                    }
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Име</label>
+                    <InputText @bind-Value="registerModel.FirstName" class="form-control p-3" placeholder="Вашето име" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Фамилия</label>
+                    <InputText @bind-Value="registerModel.LastName" class="form-control p-3" placeholder="Вашата фамилия" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Парола *</label>
+                    <InputText @bind-Value="registerModel.Password" type="password" class="@PasswordClass" placeholder="Минимум 6 символа" />
+                    <ValidationMessage For="@(() => registerModel.Password)" />
+                    @if (!string.IsNullOrEmpty(registerModel.Password) && registerModel.Password.Length < 6)
+                    {
+                    <div class="invalid-feedback d-block">Паролата трябва да бъде поне 6 символа</div>
+                    }
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Потвърди парола *</label>
+                    <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="@ConfirmPasswordClass" placeholder="Повторете паролата" />
+                    <ValidationMessage For="@(() => registerModel.ConfirmPassword)" />
+                    @if (!string.IsNullOrEmpty(registerModel.ConfirmPassword) && registerModel.Password != registerModel.ConfirmPassword)
+                    {
+                    <div class="invalid-feedback d-block">Паролите не съвпадат</div>
+                    }
+                </div>
+                <button type="submit" class="btn btn-primary w-100 p-3 fw-bold rounded-pill" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    РЕГИСТРИРАЙ СЕ
+                </button>
+            </EditForm>
+                <div class="mt-4 text-center">
+                    <div class="divider-with-text mb-3">
+                        <span class="divider-line"></span>
+                        <span class="divider-text">или</span>
+                        <span class="divider-line"></span>
+                    </div>
+                    <small class="text-muted">
+                        Вече имате акаунт? 
+                        <a href="/login" class="text-primary fw-bold" style="text-decoration: none;">Влезте тук</a>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private RegisterModel registerModel = new();
+    private string? errorMessage;
+    private string? successMessage;
+    private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if already logged in
+        var token = await AuthService.GetTokenAsync();
+        if (!string.IsNullOrEmpty(token) && !string.IsNullOrWhiteSpace(token))
+        {
+            // Already authenticated - redirect to dashboard
+            // User should not see register page if already logged in
+            NavManager.NavigateTo("/dashboard", forceLoad: true);
+        }
+        // If not authenticated, stay on register page - this is correct
+    }
+
+    private string PasswordClass => $"form-control p-3 {(registerModel.Password.Length > 0 && registerModel.Password.Length < 6 ? "is-invalid" : "")}";
+    private string ConfirmPasswordClass => $"form-control p-3 {(!string.IsNullOrEmpty(registerModel.ConfirmPassword) && registerModel.Password != registerModel.ConfirmPassword ? "is-invalid" : "")}";
+
+    private void HandleInvalidSubmit()
+    {
+        errorMessage = "Моля попълнете всички задължителни полета правилно!";
+    }
+
+    private async Task HandleRegister()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            successMessage = null;
+
+            // Client-side validation
+            if (string.IsNullOrWhiteSpace(registerModel.Username) || registerModel.Username.Length < 3)
+            {
+                errorMessage = "Потребителското име трябва да бъде поне 3 символа!";
+                isLoading = false;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(registerModel.Email) || !registerModel.Email.Contains("@"))
+            {
+                errorMessage = "Моля въведете валиден имейл адрес!";
+                isLoading = false;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(registerModel.Password))
+            {
+                errorMessage = "Паролата е задължителна!";
+                isLoading = false;
+                return;
+            }
+
+            if (registerModel.Password.Length < 6)
+            {
+                errorMessage = "Паролата трябва да бъде поне 6 символа!";
+                isLoading = false;
+                return;
+            }
+
+            if (registerModel.Password != registerModel.ConfirmPassword)
+            {
+                errorMessage = "Паролите не съвпадат!";
+                isLoading = false;
+                return;
+            }
+
+            var success = await AuthService.RegisterAsync(
+                registerModel.Username,
+                registerModel.Email,
+                registerModel.Password,
+                registerModel.ConfirmPassword,
+                registerModel.FirstName,
+                registerModel.LastName
+            );
+
+            if (success)
+            {
+                successMessage = "Регистрацията е успешна! Пренасочване към страницата за вход...";
+                await Task.Delay(2000);
+                NavManager.NavigateTo("/login", forceLoad: true);
+            }
+            else
+            {
+                errorMessage = "Регистрацията неуспешна. Моля опитайте отново.";
+                isLoading = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Грешка при регистрация: {ex.Message}";
+            isLoading = false;
+        }
+    }
+
+    public class RegisterModel
+    {
+        [Required(ErrorMessage = "Потребителското име е задължително")]
+        [MinLength(3, ErrorMessage = "Потребителското име трябва да бъде поне 3 символа")]
+        public string Username { get; set; } = string.Empty;
+        
+        [Required(ErrorMessage = "Имейлът е задължителен")]
+        [EmailAddress(ErrorMessage = "Моля въведете валиден имейл адрес")]
+        public string Email { get; set; } = string.Empty;
+        
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        
+        [Required(ErrorMessage = "Паролата е задължителна")]
+        [MinLength(6, ErrorMessage = "Паролата трябва да бъде поне 6 символа")]
+        public string Password { get; set; } = string.Empty;
+        
+        [Required(ErrorMessage = "Потвърждението на паролата е задължително")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

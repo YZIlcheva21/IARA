@@ -1,44 +1,98 @@
 @page "/login"
+@layout AuthLayout
 @using IARA.Web.Services
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Components.Forms
 @inject AuthService AuthService
 @inject NavigationManager NavManager
 @inject IJSRuntime JS
 
-<div class="container py-5">
-    <div class="card shadow-lg border-0 rounded-4 mx-auto" style="max-width: 400px;">
-        <div class="card-body p-5">
-            <h2 class="text-center text-primary mb-4 fw-bold">ИАРА ВХОД</h2>
+<div class="auth-page-wrapper">
+    <div class="auth-background-decoration">
+        <div class="wave wave1"></div>
+        <div class="wave wave2"></div>
+        <div class="wave wave3"></div>
+    </div>
+    <div class="container py-5 position-relative" style="z-index: 2;">
+        <div class="card shadow-lg border-0 rounded-4 mx-auto auth-card" style="max-width: 420px;">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <div class="auth-logo mb-3">
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="32" cy="32" r="30" fill="url(#oceanGrad)"/>
+                            <path d="M20 40 L32 28 L44 40" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                            <defs>
+                                <linearGradient id="oceanGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#0a4d68"/>
+                                    <stop offset="50%" style="stop-color:#088395"/>
+                                    <stop offset="100%" style="stop-color:#05bfdb"/>
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <h2 class="text-center text-primary mb-2 fw-bold" style="font-size: 1.8rem; letter-spacing: 1px;">ИАРА</h2>
+                    <p class="text-muted mb-4" style="font-size: 0.95rem; font-weight: 500;">Вход в системата</p>
+                </div>
             @if (!string.IsNullOrEmpty(errorMessage))
             {
             <div class="alert alert-danger">@errorMessage</div>
             }
-            <div class="mb-3">
-                <label class="form-label fw-bold">Потребител</label>
-                <input @bind="username" class="form-control p-3" placeholder="Въведете потребителско име" />
-            </div>
-            <div class="mb-4">
-                <label class="form-label fw-bold">Парола</label>
-                <input @bind="password" type="password" class="form-control p-3" placeholder="Въведете парола" />
-            </div>
-            <button class="btn btn-primary w-100 p-3 fw-bold rounded-pill" @onclick="HandleLogin" disabled="@isLoading">
-                @if (isLoading)
-                {
-                <span class="spinner-border spinner-border-sm me-2"></span>
-                }
-                ВЛЕЗ
-            </button>
-            <div class="mt-3 text-center">
-                <small class="text-muted">Тестови данни: admin / Admin123!</small>
+            <EditForm Model="@loginModel" OnValidSubmit="HandleLogin">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Потребител *</label>
+                    <InputText @bind-Value="loginModel.Username" class="form-control p-3" placeholder="Въведете потребителско име" />
+                    <ValidationMessage For="@(() => loginModel.Username)" />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Парола *</label>
+                    <InputText @bind-Value="loginModel.Password" type="password" class="form-control p-3" placeholder="Въведете парола" />
+                    <ValidationMessage For="@(() => loginModel.Password)" />
+                </div>
+                <button type="submit" class="btn btn-primary w-100 p-3 fw-bold rounded-pill" disabled="@isLoading">
+                    @if (isLoading)
+                    {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    ВЛЕЗ
+                </button>
+            </EditForm>
+                <div class="mt-4 text-center">
+                    <div class="divider-with-text mb-3">
+                        <span class="divider-line"></span>
+                        <span class="divider-text">или</span>
+                        <span class="divider-line"></span>
+                    </div>
+                    <small class="text-muted d-block mb-2">
+                        Нямате акаунт? 
+                        <a href="/register" class="text-primary fw-bold" style="text-decoration: none;">Регистрирайте се тук</a>
+                    </small>
+                    <small class="text-muted" style="font-size: 0.8rem; display: block; padding-top: 1rem; border-top: 1px solid #e0e0e0; margin-top: 1rem;">
+                        <strong>Тестови данни:</strong> admin / Admin123!
+                    </small>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 @code {
-    private string username = "admin";
-    private string password = "Admin123!";
+    private LoginModel loginModel = new() { Username = "admin", Password = "Admin123!" };
     private string? errorMessage;
     private bool isLoading = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if already logged in
+        var token = await AuthService.GetTokenAsync();
+        if (!string.IsNullOrEmpty(token) && !string.IsNullOrWhiteSpace(token))
+        {
+            // Already authenticated - redirect to dashboard
+            // User should not see login page if already logged in
+            NavManager.NavigateTo("/dashboard", forceLoad: true);
+        }
+        // If not authenticated, stay on login page - this is correct
+    }
 
     private async Task HandleLogin()
     {
@@ -46,25 +100,47 @@
         {
             isLoading = true;
             errorMessage = null;
+
+            // Basic validation
+            if (string.IsNullOrWhiteSpace(loginModel.Username))
+            {
+                errorMessage = "Моля въведете потребителско име!";
+                isLoading = false;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(loginModel.Password))
+            {
+                errorMessage = "Моля въведете парола!";
+                isLoading = false;
+                return;
+            }
             
-            var success = await AuthService.LoginAsync(username, password);
+            var success = await AuthService.LoginAsync(loginModel.Username, loginModel.Password);
             if (success)
             {
-                await JS.InvokeVoidAsync("console.log", "Успешен вход!");
-                NavManager.NavigateTo("/");
+                // Login successful - redirect to dashboard
+                NavManager.NavigateTo("/dashboard", forceLoad: true);
             }
             else
             {
                 errorMessage = "Невалидно потребителско име или парола!";
+                isLoading = false;
             }
         }
         catch (Exception ex)
         {
             errorMessage = $"Грешка при вход: {ex.Message}";
-        }
-        finally
-        {
             isLoading = false;
         }
+    }
+
+    private class LoginModel
+    {
+        [Required(ErrorMessage = "Потребителското име е задължително")]
+        public string Username { get; set; } = string.Empty;
+        
+        [Required(ErrorMessage = "Паролата е задължителна")]
+        public string Password { get; set; } = string.Empty;
     }
 }

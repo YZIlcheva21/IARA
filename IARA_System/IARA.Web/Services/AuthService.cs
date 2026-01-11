@@ -21,6 +21,7 @@ namespace IARA.Web.Services
         {
             try
             {
+                // Login endpoint doesn't require authentication, so use HttpClient directly
                 var response = await _httpClient.PostAsJsonAsync("api/Auth/login", new { Username = username, Password = password });
                 
                 if (response.IsSuccessStatusCode)
@@ -35,11 +36,49 @@ namespace IARA.Web.Services
                         return true;
                     }
                 }
+                else
+                {
+                    // Try to read error message
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new Exception($"Login failed: {response.StatusCode} - {errorContent}");
+                }
                 return false;
             }
             catch
             {
-                return false;
+                throw; // Re-throw to show error message
+            }
+        }
+
+        public async Task<bool> RegisterAsync(string username, string email, string password, string confirmPassword, string? firstName = null, string? lastName = null)
+        {
+            try
+            {
+                var registerModel = new
+                {
+                    Username = username,
+                    Email = email,
+                    Password = password,
+                    ConfirmPassword = confirmPassword,
+                    FirstName = firstName,
+                    LastName = lastName
+                };
+
+                var response = await _httpClient.PostAsJsonAsync("api/Auth/register", registerModel);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    return true;
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new Exception($"Registration failed: {response.StatusCode} - {errorContent}");
+                }
+            }
+            catch
+            {
+                throw; // Re-throw to show error message
             }
         }
 
@@ -59,6 +98,35 @@ namespace IARA.Web.Services
             {
                 // Ignore errors during initialization
             }
+        }
+
+        public async Task<string?> GetTokenAsync()
+        {
+            if (string.IsNullOrEmpty(_token))
+            {
+                try
+                {
+                    var tokenFromStorage = await _jsRuntime.InvokeAsync<string>("localStorage.getItem", "authToken");
+                    // Only set token if it's not null, empty, or whitespace
+                    if (!string.IsNullOrWhiteSpace(tokenFromStorage))
+                    {
+                        _token = tokenFromStorage;
+                    }
+                    else
+                    {
+                        // Clear invalid token from storage
+                        await _jsRuntime.InvokeVoidAsync("localStorage.removeItem", "authToken");
+                        _token = null;
+                    }
+                }
+                catch
+                {
+                    // If we can't access storage, clear token
+                    _token = null;
+                }
+            }
+            // Return null if token is empty or whitespace
+            return string.IsNullOrWhiteSpace(_token) ? null : _token;
         }
 
         public async Task LogoutAsync()

@@ -1,4 +1,25 @@
 ﻿@inherits LayoutComponentBase
+@using IARA.Web.Services
+@inject AuthService AuthService
+@inject NavigationManager NavManager
+
+@if (!authChecked)
+{
+    @* DO NOT RENDER ANYTHING until auth is checked - this prevents flash of content *@
+    @* Show nothing - completely blank *@
+}
+else if (isAuthPage)
+{
+    @* Login/Register pages use AuthLayout, so just render body without MainLayout structure *@
+    @Body
+}
+else if (!isAuthenticated)
+{
+    @* NOT AUTHENTICATED - DO NOT RENDER ANYTHING - redirect will happen *@
+    @* Show nothing - completely blank *@
+}
+else
+{
 <div class="page">
     <div class="sidebar">
         <NavMenu/>
@@ -6,7 +27,7 @@
 
     <main>
         <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+            <span class="text-muted">ИАРА Система за управление</span>
         </div>
 
         <article class="content px-4">
@@ -14,3 +35,63 @@
         </article>
     </main>
 </div>
+}
+
+@code {
+    private bool authChecked = false;
+    private bool isAuthenticated = false;
+    private bool isAuthPage = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // CRITICAL: Do NOT set authChecked = true until we've verified everything
+        // This prevents any content from rendering before auth check completes
+        
+        // Get the current path
+        var uri = new Uri(NavManager.Uri);
+        var path = uri.AbsolutePath.ToLower();
+        
+        // Check if current page is login, register, or root redirect page
+        isAuthPage = path == "/login" || path == "/register" || path == "/";
+        
+        if (isAuthPage)
+        {
+            // Login/Register/Redirect pages use AuthLayout, just render body without MainLayout
+            // These pages are accessible without authentication
+            authChecked = true;
+            return;
+        }
+        
+        // For ALL other pages (dashboard, ships, etc.), MUST be authenticated
+        // Check authentication FIRST - before rendering ANYTHING
+        var token = await AuthService.GetTokenAsync();
+        isAuthenticated = !string.IsNullOrEmpty(token) && !string.IsNullOrWhiteSpace(token);
+        
+        if (!isAuthenticated)
+        {
+            // NOT authenticated - redirect to login IMMEDIATELY
+            // Set authChecked to true ONLY after redirect is initiated
+            // This ensures redirect happens but page doesn't render
+            NavManager.NavigateTo("/login", forceLoad: true);
+            authChecked = true; // Allow redirect to complete
+            return;
+        }
+        
+        // Authenticated - show the page
+        authChecked = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !isAuthPage && !isAuthenticated)
+        {
+            // Double-check: if still not authenticated after first render, force redirect
+            await Task.Delay(50);
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                NavManager.NavigateTo("/login", forceLoad: true);
+            }
+        }
+    }
+}

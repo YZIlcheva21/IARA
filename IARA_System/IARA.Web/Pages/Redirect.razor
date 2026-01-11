@@ -1,0 +1,43 @@
+@page "/"
+@layout AuthLayout
+@inject NavigationManager NavManager
+@inject IARA.Web.Services.AuthService AuthService
+
+@* This page redirects immediately - no content should ever be visible *@
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Check authentication IMMEDIATELY and redirect BEFORE any rendering
+        var token = await AuthService.GetTokenAsync();
+        
+        if (string.IsNullOrEmpty(token))
+        {
+            // NOT authenticated - redirect to login IMMEDIATELY
+            NavManager.NavigateTo("/login", forceLoad: true);
+        }
+        else
+        {
+            // Authenticated - redirect to dashboard
+            NavManager.NavigateTo("/dashboard", forceLoad: true);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Ensure redirect happens - double check
+            await Task.Delay(10);
+            var token = await AuthService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                NavManager.NavigateTo("/login", forceLoad: true);
+            }
+            else
+            {
+                NavManager.NavigateTo("/dashboard", forceLoad: true);
+            }
+        }
+    }
+}

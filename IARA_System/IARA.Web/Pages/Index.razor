@@ -1,56 +1,97 @@
-@page "/"
-@using System.Net.Http.Json
-@inject HttpClient Http
+@page "/dashboard"
+@using IARA.Web.Services
+@inject AuthService AuthService
+@inject NavigationManager NavManager
 
 <PageTitle>Табло - ИАРА</PageTitle>
 
-<div class="container-fluid p-4">
-    <div class="row mb-4">
+@if (!authChecked)
+{
+    @* DO NOT RENDER ANYTHING until auth is checked *@
+    <div style="display: none;"></div>
+}
+else if (!isAuthenticated)
+{
+    @* NOT AUTHENTICATED - redirect will happen via MainLayout *@
+    <div style="display: none;"></div>
+}
+else
+{
+<div class="container-fluid p-4 dashboard-container">
+    <div class="row mb-5">
         <div class="col-12">
-            <h1 class="display-4 text-primary fw-bold">Добре дошли в ИАРА</h1>
-            <p class="lead text-muted">Изпълнителна Агенция по Рибарство и Аквакултури</p>
-            <hr class="my-4">
+            <div class="welcome-header">
+                <h1 class="display-4 text-primary fw-bold mb-2">
+                    <span class="welcome-icon">🌊</span>
+                    Добре дошли в ИАРА
+                </h1>
+                <p class="lead text-muted mb-0">Изпълнителна Агенция по Рибарство и Аквакултури</p>
+                <div class="header-underline"></div>
+            </div>
         </div>
     </div>
 
-    <div class="row g-4 mb-4">
+    <div class="row g-4 mb-4 dashboard-cards">
         <div class="col-md-3">
-            <div class="card shadow-sm border-0 h-100 text-center">
+            <div class="card shadow-sm border-0 h-100 text-center dashboard-card-item" style="animation-delay: 0.1s;">
                 <div class="card-body">
-                    <div class="display-4 text-primary mb-3">⛴</div>
+                    <div class="card-icon-wrapper mb-3">
+                        <div class="card-icon bg-primary-gradient">⛴</div>
+                    </div>
                     <h5 class="card-title">Регистър Кораби</h5>
-                    <p class="card-text small text-muted">Управление на риболовни кораби</p>
-                    <a href="/ships" class="btn btn-primary w-100">Отвори</a>
+                    <p class="card-text small text-muted mb-3">Управление на риболовни кораби</p>
+                    <a href="/ships" class="btn btn-primary w-100 btn-hover-effect">Отвори</a>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card shadow-sm border-0 h-100 text-center">
+            <div class="card shadow-sm border-0 h-100 text-center dashboard-card-item" style="animation-delay: 0.2s;">
                 <div class="card-body">
-                    <div class="display-4 text-success mb-3">📄</div>
+                    <div class="card-icon-wrapper mb-3">
+                        <div class="card-icon bg-primary-gradient">📄</div>
+                    </div>
                     <h5 class="card-title">Разрешителни</h5>
-                    <p class="card-text small text-muted">Управление на разрешителни за риболов</p>
-                    <a href="/licenses" class="btn btn-success w-100">Отвори</a>
+                    <p class="card-text small text-muted mb-3">Управление на разрешителни за риболов</p>
+                    <a href="/licenses" class="btn btn-primary w-100 btn-hover-effect">Отвори</a>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card shadow-sm border-0 h-100 text-center">
+            <div class="card shadow-sm border-0 h-100 text-center dashboard-card-item" style="animation-delay: 0.3s;">
                 <div class="card-body">
-                    <div class="display-4 text-info mb-3">🐟</div>
+                    <div class="card-icon-wrapper mb-3">
+                        <div class="card-icon bg-primary-gradient">🐟</div>
+                    </div>
                     <h5 class="card-title">Нов Улов</h5>
-                    <p class="card-text small text-muted">Регистрация на нов улов</p>
-                    <a href="/add-catch" class="btn btn-info w-100">Отвори</a>
+                    <p class="card-text small text-muted mb-3">Регистрация на нов улов</p>
+                    <a href="/add-catch" class="btn btn-primary w-100 btn-hover-effect">Отвори</a>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card shadow-sm border-0 h-100 text-center">
+            <div class="card shadow-sm border-0 h-100 text-center dashboard-card-item" style="animation-delay: 0.4s;">
                 <div class="card-body">
-                    <div class="display-4 text-warning mb-3">📊</div>
+                    <div class="card-icon-wrapper mb-3">
+                        <div class="card-icon bg-primary-gradient">📊</div>
+                    </div>
                     <h5 class="card-title">Справки</h5>
-                    <p class="card-text small text-muted">Анализи и статистики</p>
-                    <a href="/reports" class="btn btn-warning w-100">Отвори</a>
+                    <p class="card-text small text-muted mb-3">Анализи и статистики</p>
+                    <a href="/reports" class="btn btn-primary w-100 btn-hover-effect">Отвори</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4 dashboard-cards">
+        <div class="col-md-3">
+            <div class="card shadow-sm border-0 h-100 text-center dashboard-card-item" style="animation-delay: 0.5s;">
+                <div class="card-body">
+                    <div class="card-icon-wrapper mb-3">
+                        <div class="card-icon bg-primary-gradient">🔍</div>
+                    </div>
+                    <h5 class="card-title">Инспекции</h5>
+                    <p class="card-text small text-muted mb-3">Управление на инспекции</p>
+                    <a href="/inspections" class="btn btn-primary w-100 btn-hover-effect">Отвори</a>
                 </div>
             </div>
         </div>
@@ -106,3 +147,27 @@
         </div>
     </div>
 </div>
+}
+
+@code {
+    private bool authChecked = false;
+    private bool isAuthenticated = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check authentication BEFORE rendering dashboard
+        var token = await AuthService.GetTokenAsync();
+        isAuthenticated = !string.IsNullOrEmpty(token) && !string.IsNullOrWhiteSpace(token);
+        
+        if (!isAuthenticated)
+        {
+            // NOT authenticated - redirect to login
+            // DO NOT set authChecked - keep it false so nothing renders
+            NavManager.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+        
+        // Authenticated - allow rendering
+        authChecked = true;
+    }
+}

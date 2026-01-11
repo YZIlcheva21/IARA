@@ -1,12 +1,36 @@
 @page "/ships"
 @using System.Net.Http.Json
 @using System.Linq
-@inject HttpClient Http
+@using IARA.Web.Services
+@inject AuthenticatedHttpClient Http
+@inject IJSRuntime JS
 
-<div class="container-fluid p-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="fw-bold"><span class="oi oi-ship me-2"></span> Регистър на корабите</h1>
-        <button class="btn btn-primary rounded-pill px-4">+ Нов Кораб</button>
+@if (!authChecked)
+{
+    @* DO NOT RENDER ANYTHING until auth is checked *@
+    <div style="display: none;"></div>
+}
+else if (!isAuthenticated)
+{
+    @* NOT AUTHENTICATED - redirect will happen *@
+    <div style="display: none;"></div>
+}
+else
+{
+<div class="container-fluid p-4 page-container">
+    <div class="page-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title mb-2">
+                    <span class="page-icon">⛴</span>
+                    Регистър на корабите
+                </h1>
+                <p class="page-subtitle text-muted mb-0">Управление на риболовни кораби и регистрация</p>
+            </div>
+            <button class="btn btn-primary rounded-pill px-4 btn-add-action" @onclick="ShowAddShipModal">
+                <span class="oi oi-plus me-2"></span>Нов Кораб
+            </button>
+        </div>
     </div>
 
     <div class="mb-3">
@@ -25,7 +49,11 @@
     }
     else if (!string.IsNullOrEmpty(errorMessage))
     {
-    <div class="alert alert-danger">@errorMessage</div>
+    <div class="alert alert-danger">
+        <strong>⚠️ Грешка при зареждане:</strong> @errorMessage
+        <hr />
+        <small>💡 <strong>Решение:</strong> Уверете се, че API сървърът работи на <code>http://localhost:5028</code></small>
+    </div>
     }
     else if (ships == null || ships.Length == 0)
     {
@@ -70,6 +98,17 @@
                             <div class="fw-bold">@(ship.EnginePower?.ToString("F0") ?? "N/A") kW</div>
                         </div>
                     </div>
+                    <div class="mt-3 d-flex gap-2 justify-content-end">
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => ViewShipDetails(ship.Id)" title="Преглед">
+                            <span class="oi oi-eye"></span> Преглед
+                        </button>
+                        <button class="btn btn-sm btn-outline-warning" @onclick="() => EditShip(ship.Id)" title="Редактирай">
+                            <span class="oi oi-pencil"></span> Редактирай
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => ConfirmDeleteShip(ship.Id)" title="Изтрий кораб">
+                            <span class="oi oi-trash"></span> Изтрий
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -97,6 +136,377 @@
     }
     }
 </div>
+}
+
+<!-- Modal за добавяне на нов кораб -->
+@if (showAddShipModal)
+{
+<div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold">
+                    <span class="oi oi-plus me-2"></span>Добави нов кораб
+                </h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="CloseAddShipModal"></button>
+            </div>
+            <div class="modal-body p-4">
+                @if (!string.IsNullOrEmpty(addShipErrorMessage))
+                {
+                <div class="alert alert-danger">@addShipErrorMessage</div>
+                }
+                @if (!string.IsNullOrEmpty(addShipSuccessMessage))
+                {
+                <div class="alert alert-success">@addShipSuccessMessage</div>
+                }
+                
+                <EditForm Model="@newShip" OnValidSubmit="HandleAddShip">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Име на кораба *</label>
+                            <InputText @bind-Value="newShip.Name" class="form-control" placeholder="Напр. Посейдон" />
+                            <ValidationMessage For="@(() => newShip.Name)" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Международен номер (IMO) *</label>
+                            <InputText @bind-Value="newShip.InternationalNumber" class="form-control" placeholder="Напр. IMO1234567" />
+                            <ValidationMessage For="@(() => newShip.InternationalNumber)" />
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Позивна</label>
+                            <InputText @bind-Value="newShip.CallSign" class="form-control" placeholder="Напр. LZ1234" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Маркировка</label>
+                            <InputText @bind-Value="newShip.Marking" class="form-control" placeholder="Напр. PDN-001" />
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Регистрационен номер</label>
+                            <InputText @bind-Value="newShip.RegistrationNumber" class="form-control" placeholder="Напр. BG-001" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Домашен пристан</label>
+                            <InputText @bind-Value="newShip.HomePort" class="form-control" placeholder="Напр. Варна" />
+                        </div>
+                    </div>
+                    
+                    <hr class="my-3" />
+                    <h6 class="fw-bold mb-3">Технически параметри</h6>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Дължина (м)</label>
+                            <InputNumber @bind-Value="newShip.Length" class="form-control" placeholder="0.0" min="0.1" step="0.1" />
+                            <small class="text-muted">Минимум: 0.1 м</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Ширина (м)</label>
+                            <InputNumber @bind-Value="newShip.Width" class="form-control" placeholder="0.0" min="0.1" step="0.1" />
+                            <small class="text-muted">Минимум: 0.1 м</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Мощност (kW)</label>
+                            <InputNumber @bind-Value="newShip.EnginePower" class="form-control" placeholder="0" min="1" step="1" />
+                            <small class="text-muted">Минимум: 1 kW</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Тип двигател</label>
+                            <InputSelect @bind-Value="newShip.EngineType" class="form-select">
+                                <option value="">Изберете...</option>
+                                <option value="Diesel">Diesel</option>
+                                <option value="Gasoline">Gasoline</option>
+                                <option value="Electric">Electric</option>
+                                <option value="Hybrid">Hybrid</option>
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Вид гориво</label>
+                            <InputSelect @bind-Value="newShip.FuelType" class="form-select">
+                                <option value="">Изберете...</option>
+                                <option value="Diesel">Diesel</option>
+                                <option value="Gasoline">Gasoline</option>
+                                <option value="LPG">LPG</option>
+                                <option value="CNG">CNG</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Среден разход (л/час)</label>
+                            <InputNumber @bind-Value="newShip.AverageFuelConsumptionPerHour" class="form-control" placeholder="0.0" min="0.1" step="0.1" />
+                            <small class="text-muted">Минимум: 0.1 л/час</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Година на построяване</label>
+                            <InputNumber @bind-Value="builtYearValue" class="form-control" placeholder="Напр. 2020" min="1900" max="@(DateTime.Now.Year + 1)" />
+                            <small class="text-muted">Година между 1900 и @(DateTime.Now.Year + 1)</small>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-3" />
+                    <h6 class="fw-bold mb-3">Собственост и управление</h6>
+                    
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">ID на собственик</label>
+                            <InputNumber @bind-Value="newShip.OwnerId" class="form-control" placeholder="Опционално" />
+                            <small class="text-muted">Въведете ID на рибар от базата данни</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">ID на капитан</label>
+                            <InputNumber @bind-Value="newShip.CaptainId" class="form-control" placeholder="Опционално" />
+                            <small class="text-muted">Въведете ID на рибар от базата данни</small>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">ID на оператор</label>
+                            <InputNumber @bind-Value="newShip.OperatorId" class="form-control" placeholder="Опционално" />
+                            <small class="text-muted">Въведете ID на рибар от базата данни</small>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseAddShipModal">Отказ</button>
+                        <button type="submit" class="btn btn-primary" disabled="@isAddingShip">
+                            @if (isAddingShip)
+                            {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            <span class="oi oi-check me-2"></span>Запази
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+<!-- Modal за преглед на кораб -->
+@if (showViewShipModal && currentShip != null)
+{
+<div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title fw-bold">
+                    <span class="oi oi-eye me-2"></span>Детайли на кораб
+                </h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="CloseViewShipModal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <strong>Име:</strong> @currentShip.Name
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Международен номер:</strong> @currentShip.InternationalNumber
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Позивна:</strong> @(currentShip.CallSign ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Маркировка:</strong> @(currentShip.Marking ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Регистрационен номер:</strong> @(currentShip.RegistrationNumber ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Домашно пристанище:</strong> @(currentShip.HomePort ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Дължина:</strong> @(currentShip.Length?.ToString("F1") ?? "N/A") м
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Ширина:</strong> @(currentShip.Width?.ToString("F1") ?? "N/A") м
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Бруто тонаж:</strong> @(currentShip.GrossTonnage?.ToString("F1") ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Газене:</strong> @(currentShip.Draught?.ToString("F1") ?? "N/A") м
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Мощност на двигател:</strong> @(currentShip.EnginePower?.ToString("F0") ?? "N/A") kW
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Тип двигател:</strong> @(currentShip.EngineType ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Вид гориво:</strong> @(currentShip.FuelType ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Среден разход:</strong> @(currentShip.AverageFuelConsumptionPerHour?.ToString("F2") ?? "N/A") л/час
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Година на построяване:</strong> @(currentShip.BuiltYear?.Year.ToString() ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Статус:</strong> 
+                        <span class="badge bg-@(currentShip.IsActive ? "success" : "danger")">
+                            @(currentShip.IsActive ? "Активен" : "Неактивен")
+                        </span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Голям кораб (>12м):</strong> @(currentShip.IsLargeShip ? "Да" : "Не")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Собственик:</strong> @(currentShip.OwnerName ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Капитан:</strong> @(currentShip.CaptainName ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Оператор:</strong> @(currentShip.OperatorName ?? "N/A")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Активно разрешително:</strong> @(currentShip.ActiveLicenseNumber ?? "Няма")
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Брой разрешителни:</strong> @(currentShip.LicenseCount ?? 0)
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Брой дневници:</strong> @(currentShip.LogbookEntryCount ?? 0)
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <strong>Брой инспекции:</strong> @(currentShip.InspectionCount ?? 0)
+                    </div>
+                    <div class="col-12 mb-3">
+                        <strong>Създаден на:</strong> @currentShip.CreatedAt.ToString("dd.MM.yyyy HH:mm")
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseViewShipModal">Затвори</button>
+                <button type="button" class="btn btn-warning" @onclick="async () => { CloseViewShipModal(); await EditShip(currentShip.Id); }">Редактирай</button>
+            </div>
+        </div>
+    </div>
+</div>
+}
+
+<!-- Modal за редактиране на кораб -->
+@if (showEditShipModal && editShipModel != null)
+{
+<div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title fw-bold">
+                    <span class="oi oi-pencil me-2"></span>Редактирай кораб
+                </h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="CloseEditShipModal"></button>
+            </div>
+            <div class="modal-body p-4">
+                @if (!string.IsNullOrEmpty(addShipErrorMessage))
+                {
+                <div class="alert alert-danger">@addShipErrorMessage</div>
+                }
+                
+                <EditForm Model="@editShipModel" OnValidSubmit="HandleUpdateShip">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Име на кораба *</label>
+                            <InputText @bind-Value="editShipModel.Name" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Международен номер (IMO) *</label>
+                            <InputText @bind-Value="editShipModel.InternationalNumber" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Позивна</label>
+                            <InputText @bind-Value="editShipModel.CallSign" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Маркировка</label>
+                            <InputText @bind-Value="editShipModel.Marking" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Регистрационен номер</label>
+                            <InputText @bind-Value="editShipModel.RegistrationNumber" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Домашно пристанище</label>
+                            <InputText @bind-Value="editShipModel.HomePort" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Дължина (м)</label>
+                            <InputNumber @bind-Value="editShipModel.Length" class="form-control" placeholder="0.0" min="0.1" step="0.1" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Ширина (м)</label>
+                            <InputNumber @bind-Value="editShipModel.Width" class="form-control" placeholder="0.0" min="0.1" step="0.1" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Бруто тонаж</label>
+                            <InputNumber @bind-Value="editShipModel.GrossTonnage" class="form-control" placeholder="0.0" min="0" step="0.1" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Газене (м)</label>
+                            <InputNumber @bind-Value="editShipModel.Draught" class="form-control" placeholder="0.0" min="0" step="0.1" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Мощност на двигател (kW)</label>
+                            <InputNumber @bind-Value="editShipModel.EnginePower" class="form-control" placeholder="0" min="1" step="1" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Тип двигател</label>
+                            <InputText @bind-Value="editShipModel.EngineType" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Вид гориво</label>
+                            <InputText @bind-Value="editShipModel.FuelType" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Среден разход (л/час)</label>
+                            <InputNumber @bind-Value="editShipModel.AverageFuelConsumptionPerHour" class="form-control" placeholder="0.0" min="0.1" step="0.1" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Година на построяване</label>
+                            <InputNumber @bind-Value="editBuiltYearValue" class="form-control" placeholder="Напр. 2020" min="1900" max="@(DateTime.Now.Year + 1)" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Активен</label>
+                            <InputCheckbox @bind-Value="editShipModel.IsActive" class="form-check-input" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">ID на собственик</label>
+                            <InputNumber @bind-Value="editShipModel.OwnerId" class="form-control" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">ID на капитан</label>
+                            <InputNumber @bind-Value="editShipModel.CaptainId" class="form-control" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">ID на оператор</label>
+                            <InputNumber @bind-Value="editShipModel.OperatorId" class="form-control" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseEditShipModal">Отказ</button>
+                        <button type="submit" class="btn btn-warning" disabled="@isUpdatingShip">
+                            @if (isUpdatingShip)
+                            {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            <span class="oi oi-check me-2"></span>Запази промените
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+}
 
 @code {
 private ShipDto[]? ships;
@@ -107,9 +517,29 @@ private int totalPages = 1;
 private int totalCount = 0;
 private string searchTerm = "";
 
+@inject NavigationManager NavManager
+@inject IARA.Web.Services.AuthService AuthService
+
+private bool authChecked = false;
+private bool isAuthenticated = false;
+
 protected override async Task OnInitializedAsync()
 {
-await LoadShips();
+    // Check authentication BEFORE rendering ANYTHING
+    var token = await AuthService.GetTokenAsync();
+    isAuthenticated = !string.IsNullOrEmpty(token) && !string.IsNullOrWhiteSpace(token);
+    
+    if (!isAuthenticated)
+    {
+        // NOT authenticated - redirect to login IMMEDIATELY
+        authChecked = true;
+        NavManager.NavigateTo("/login", forceLoad: true);
+        return;
+    }
+    
+    // Authenticated - allow rendering
+    authChecked = true;
+    await LoadShips();
 }
 
 private async Task LoadShips()
@@ -134,12 +564,72 @@ totalCount = response.TotalCount;
 }
 catch (Exception ex)
 {
-errorMessage = $"Грешка при зареждане: {ex.Message}";
-}
+            if (ex.Message.Contains("Failed to fetch") || ex.Message.Contains("NetworkError"))
+            {
+                // Use mock data when API is not available
+                await LoadMockShips();
+                errorMessage = "⚠️ API сървърът не е достъпен. Показват се примерни данни.";
+            }
+            else
+            {
+                errorMessage = $"Грешка при зареждане: {ex.Message}";
+            }
+        }
 finally
 {
 isLoading = false;
 }
+}
+
+private async Task LoadMockShips()
+{
+    // Mock data for testing without API
+    await Task.Delay(500); // Simulate loading
+    ships = new ShipDto[]
+    {
+        new ShipDto
+        {
+            Id = 1,
+            Name = "Посейдон",
+            InternationalNumber = "IMO1234567",
+            CallSign = "LZ1234",
+            Length = 15.5m,
+            EnginePower = 250,
+            OwnerName = "Иван Петров",
+            CaptainName = "Иван Петров",
+            ActiveLicenseNumber = "LIC-2024-001",
+            IsActive = true
+        },
+        new ShipDto
+        {
+            Id = 2,
+            Name = "Нептун",
+            InternationalNumber = "IMO7654321",
+            CallSign = "LZ5678",
+            Length = 8.5m,
+            EnginePower = 120,
+            OwnerName = "Георги Иванов",
+            CaptainName = "Георги Иванов",
+            ActiveLicenseNumber = "LIC-2024-002",
+            IsActive = true
+        },
+        new ShipDto
+        {
+            Id = 3,
+            Name = "Тритон",
+            InternationalNumber = "IMO9876543",
+            CallSign = "LZ9012",
+            Length = 12.0m,
+            EnginePower = 180,
+            OwnerName = "Мария Димитрова",
+            CaptainName = "Мария Димитрова",
+            ActiveLicenseNumber = "LIC-2024-003",
+            IsActive = true
+        }
+    };
+    totalCount = ships.Length;
+    totalPages = 1;
+    currentPage = 1;
 }
 
 private async Task OnSearch()
@@ -152,6 +642,331 @@ private async Task ChangePage(int page)
 {
 currentPage = page;
 await LoadShips();
+}
+
+private async Task ConfirmDeleteShip(int shipId)
+{
+    var ship = ships?.FirstOrDefault(s => s.Id == shipId);
+    var shipName = ship?.Name ?? "този кораб";
+    
+    var confirmed = await JS.InvokeAsync<bool>("confirm", $"Сигурни ли сте, че искате да изтриете {shipName}? Това действие не може да бъде отменено!");
+    
+    if (confirmed)
+    {
+        await DeleteShip(shipId);
+    }
+}
+
+private async Task DeleteShip(int shipId)
+{
+    try
+    {
+        var response = await Http.DeleteAsync($"api/ShipRegistry/{shipId}");
+        
+        if (response.IsSuccessStatusCode)
+        {
+            await JS.InvokeVoidAsync("alert", "Корабът е изтрит успешно!");
+            await LoadShips(); // Reload the list
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            await JS.InvokeVoidAsync("alert", $"Грешка при изтриване: {response.StatusCode} - {errorContent}");
+        }
+    }
+    catch (Exception ex)
+    {
+        await JS.InvokeVoidAsync("alert", $"Грешка: {ex.Message}");
+    }
+}
+
+private bool showAddShipModal = false;
+private bool isAddingShip = false;
+private string? addShipErrorMessage;
+private string? addShipSuccessMessage;
+private CreateShipModel newShip = new();
+private int? builtYearValue;
+
+// View/Edit Ship
+private bool showViewShipModal = false;
+private bool showEditShipModal = false;
+private bool isUpdatingShip = false;
+private ShipDetailDto? currentShip;
+private UpdateShipModel? editShipModel;
+private int? editBuiltYearValue;
+
+private void ShowAddShipModal()
+{
+    showAddShipModal = true;
+    newShip = new CreateShipModel();
+    builtYearValue = null;
+    addShipErrorMessage = null;
+    addShipSuccessMessage = null;
+}
+
+private void CloseAddShipModal()
+{
+    showAddShipModal = false;
+    newShip = new CreateShipModel();
+    builtYearValue = null;
+    addShipErrorMessage = null;
+    addShipSuccessMessage = null;
+}
+
+private async Task HandleAddShip()
+{
+    try
+    {
+        isAddingShip = true;
+        addShipErrorMessage = null;
+        addShipSuccessMessage = null;
+
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(newShip.Name))
+        {
+            addShipErrorMessage = "Името на кораба е задължително!";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(newShip.InternationalNumber))
+        {
+            addShipErrorMessage = "Международният номер (IMO) е задължителен!";
+            return;
+        }
+
+        // Validate numeric fields
+        if (newShip.Length.HasValue && newShip.Length <= 0)
+        {
+            addShipErrorMessage = "Дължината трябва да бъде по-голяма от 0!";
+            return;
+        }
+
+        if (newShip.Width.HasValue && newShip.Width <= 0)
+        {
+            addShipErrorMessage = "Ширината трябва да бъде по-голяма от 0!";
+            return;
+        }
+
+        if (newShip.EnginePower.HasValue && newShip.EnginePower <= 0)
+        {
+            addShipErrorMessage = "Мощността трябва да бъде по-голяма от 0!";
+            return;
+        }
+
+        if (newShip.AverageFuelConsumptionPerHour.HasValue && newShip.AverageFuelConsumptionPerHour <= 0)
+        {
+            addShipErrorMessage = "Средният разход трябва да бъде по-голям от 0!";
+            return;
+        }
+
+        // Validate year
+        if (builtYearValue.HasValue)
+        {
+            if (builtYearValue < 1900 || builtYearValue > DateTime.Now.Year + 1)
+            {
+                addShipErrorMessage = $"Година на построяване трябва да бъде между 1900 и {DateTime.Now.Year + 1}!";
+                return;
+            }
+            newShip.BuiltYear = new DateTime(builtYearValue.Value, 1, 1);
+        }
+
+        // Create DTO for API
+        var createShipDto = new
+        {
+            Name = newShip.Name,
+            InternationalNumber = newShip.InternationalNumber,
+            CallSign = newShip.CallSign,
+            Marking = newShip.Marking,
+            RegistrationNumber = newShip.RegistrationNumber,
+            HomePort = newShip.HomePort,
+            Length = newShip.Length,
+            Width = newShip.Width,
+            GrossTonnage = newShip.GrossTonnage,
+            Draught = newShip.Draught,
+            EnginePower = newShip.EnginePower,
+            EngineType = newShip.EngineType,
+            FuelType = newShip.FuelType,
+            AverageFuelConsumptionPerHour = newShip.AverageFuelConsumptionPerHour,
+            BuiltYear = newShip.BuiltYear,
+            OwnerId = newShip.OwnerId,
+            CaptainId = newShip.CaptainId,
+            OperatorId = newShip.OperatorId
+        };
+
+        var response = await Http.PostAsJsonAsync("api/ShipRegistry", createShipDto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            addShipSuccessMessage = "Корабът е добавен успешно!";
+            await Task.Delay(1500);
+            CloseAddShipModal();
+            await LoadShips(); // Reload the list
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                addShipErrorMessage = "Нямате права за създаване на кораби. Трябва да сте Admin или RegistryOfficer!";
+            }
+            else
+            {
+                addShipErrorMessage = $"Грешка при добавяне: {response.StatusCode} - {errorContent}";
+            }
+            isAddingShip = false;
+        }
+    }
+    catch (Exception ex)
+    {
+        addShipErrorMessage = $"Грешка: {ex.Message}";
+        isAddingShip = false;
+    }
+}
+
+private async Task ViewShipDetails(int shipId)
+{
+    try
+    {
+        var ship = await Http.GetFromJsonAsync<ShipDetailDto>($"api/ShipRegistry/{shipId}");
+        if (ship != null)
+        {
+            currentShip = ship;
+            showViewShipModal = true;
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "Корабът не е намерен!");
+        }
+    }
+    catch (Exception ex)
+    {
+        await JS.InvokeVoidAsync("alert", $"Грешка: {ex.Message}");
+    }
+}
+
+private async Task EditShip(int shipId)
+{
+    try
+    {
+        var ship = await Http.GetFromJsonAsync<ShipDetailDto>($"api/ShipRegistry/{shipId}");
+        if (ship != null)
+        {
+            editShipModel = new UpdateShipModel
+            {
+                Id = ship.Id,
+                Name = ship.Name,
+                InternationalNumber = ship.InternationalNumber,
+                CallSign = ship.CallSign,
+                Marking = ship.Marking,
+                RegistrationNumber = ship.RegistrationNumber,
+                HomePort = ship.HomePort,
+                Length = ship.Length,
+                Width = ship.Width,
+                GrossTonnage = ship.GrossTonnage,
+                Draught = ship.Draught,
+                EnginePower = ship.EnginePower,
+                EngineType = ship.EngineType,
+                FuelType = ship.FuelType,
+                AverageFuelConsumptionPerHour = ship.AverageFuelConsumptionPerHour,
+                BuiltYear = ship.BuiltYear,
+                IsActive = ship.IsActive,
+                OwnerId = ship.OwnerId,
+                CaptainId = ship.CaptainId,
+                OperatorId = ship.OperatorId
+            };
+            editBuiltYearValue = ship.BuiltYear?.Year;
+            showEditShipModal = true;
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("alert", "Корабът не е намерен!");
+        }
+    }
+    catch (Exception ex)
+    {
+        await JS.InvokeVoidAsync("alert", $"Грешка: {ex.Message}");
+    }
+}
+
+private void CloseViewShipModal()
+{
+    showViewShipModal = false;
+    currentShip = null;
+}
+
+private void CloseEditShipModal()
+{
+    showEditShipModal = false;
+    editShipModel = null;
+    editBuiltYearValue = null;
+}
+
+private async Task HandleUpdateShip()
+{
+    if (editShipModel == null) return;
+
+    try
+    {
+        isUpdatingShip = true;
+        addShipErrorMessage = null;
+
+        // Validate year
+        if (editBuiltYearValue.HasValue)
+        {
+            if (editBuiltYearValue < 1900 || editBuiltYearValue > DateTime.Now.Year + 1)
+            {
+                addShipErrorMessage = $"Година на построяване трябва да бъде между 1900 и {DateTime.Now.Year + 1}!";
+                return;
+            }
+            editShipModel.BuiltYear = new DateTime(editBuiltYearValue.Value, 1, 1);
+        }
+
+        var updateDto = new
+        {
+            Id = editShipModel.Id,
+            Name = editShipModel.Name,
+            InternationalNumber = editShipModel.InternationalNumber,
+            CallSign = editShipModel.CallSign,
+            Marking = editShipModel.Marking,
+            RegistrationNumber = editShipModel.RegistrationNumber,
+            HomePort = editShipModel.HomePort,
+            Length = editShipModel.Length,
+            Width = editShipModel.Width,
+            GrossTonnage = editShipModel.GrossTonnage,
+            Draught = editShipModel.Draught,
+            EnginePower = editShipModel.EnginePower,
+            EngineType = editShipModel.EngineType,
+            FuelType = editShipModel.FuelType,
+            AverageFuelConsumptionPerHour = editShipModel.AverageFuelConsumptionPerHour,
+            BuiltYear = editShipModel.BuiltYear,
+            IsActive = editShipModel.IsActive,
+            OwnerId = editShipModel.OwnerId,
+            CaptainId = editShipModel.CaptainId,
+            OperatorId = editShipModel.OperatorId
+        };
+
+        var response = await Http.PutAsJsonAsync($"api/ShipRegistry/{editShipModel.Id}", updateDto);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await JS.InvokeVoidAsync("alert", "Корабът е актуализиран успешно!");
+            CloseEditShipModal();
+            await LoadShips();
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            addShipErrorMessage = $"Грешка при актуализация: {response.StatusCode} - {errorContent}";
+        }
+    }
+    catch (Exception ex)
+    {
+        addShipErrorMessage = $"Грешка: {ex.Message}";
+    }
+    finally
+    {
+        isUpdatingShip = false;
+    }
 }
 
 public class ShipResponse
@@ -177,5 +992,84 @@ public string? OwnerName { get; set; }
 public string? CaptainName { get; set; }
 public string? ActiveLicenseNumber { get; set; }
 public bool IsActive { get; set; }
+}
+
+public class CreateShipModel
+{
+    public string Name { get; set; } = "";
+    public string InternationalNumber { get; set; } = "";
+    public string? CallSign { get; set; }
+    public string? Marking { get; set; }
+    public string? RegistrationNumber { get; set; }
+    public string? HomePort { get; set; }
+    public decimal? Length { get; set; }
+    public decimal? Width { get; set; }
+    public decimal? GrossTonnage { get; set; }
+    public decimal? Draught { get; set; }
+    public decimal? EnginePower { get; set; }
+    public string? EngineType { get; set; }
+    public string? FuelType { get; set; }
+    public decimal? AverageFuelConsumptionPerHour { get; set; }
+    public DateTime? BuiltYear { get; set; }
+    public int? OwnerId { get; set; }
+    public int? CaptainId { get; set; }
+    public int? OperatorId { get; set; }
+}
+
+public class ShipDetailDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string InternationalNumber { get; set; } = "";
+    public string? CallSign { get; set; }
+    public string? Marking { get; set; }
+    public string? RegistrationNumber { get; set; }
+    public string? HomePort { get; set; }
+    public decimal? Length { get; set; }
+    public decimal? Width { get; set; }
+    public decimal? GrossTonnage { get; set; }
+    public decimal? Draught { get; set; }
+    public decimal? EnginePower { get; set; }
+    public string? EngineType { get; set; }
+    public string? FuelType { get; set; }
+    public decimal? AverageFuelConsumptionPerHour { get; set; }
+    public DateTime? BuiltYear { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsLargeShip { get; set; }
+    public int? OwnerId { get; set; }
+    public int? CaptainId { get; set; }
+    public int? OperatorId { get; set; }
+    public string? OwnerName { get; set; }
+    public string? CaptainName { get; set; }
+    public string? OperatorName { get; set; }
+    public string? ActiveLicenseNumber { get; set; }
+    public int? LicenseCount { get; set; }
+    public int? LogbookEntryCount { get; set; }
+    public int? InspectionCount { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class UpdateShipModel
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+    public string InternationalNumber { get; set; } = "";
+    public string? CallSign { get; set; }
+    public string? Marking { get; set; }
+    public string? RegistrationNumber { get; set; }
+    public string? HomePort { get; set; }
+    public decimal? Length { get; set; }
+    public decimal? Width { get; set; }
+    public decimal? GrossTonnage { get; set; }
+    public decimal? Draught { get; set; }
+    public decimal? EnginePower { get; set; }
+    public string? EngineType { get; set; }
+    public string? FuelType { get; set; }
+    public decimal? AverageFuelConsumptionPerHour { get; set; }
+    public DateTime? BuiltYear { get; set; }
+    public bool IsActive { get; set; }
+    public int? OwnerId { get; set; }
+    public int? CaptainId { get; set; }
+    public int? OperatorId { get; set; }
 }
 }

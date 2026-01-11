@@ -1,15 +1,40 @@
 @page "/licenses"
 @using System.Net.Http.Json
 @using System.Linq
-@inject HttpClient Http
+@using IARA.Web.Services
+@inject AuthenticatedHttpClient Http
 @inject IJSRuntime JS
+@inject NavigationManager NavManager
+@inject AuthService AuthService
 
 <PageTitle>Разрешителни - ИАРА</PageTitle>
 
+@if (!authChecked)
+{
+    @* DO NOT RENDER ANYTHING until auth is checked *@
+    <div style="display: none;"></div>
+}
+else if (!isAuthenticated)
+{
+    @* NOT AUTHENTICATED - redirect will happen *@
+    <div style="display: none;"></div>
+}
+else
+{
 <div class="container-fluid p-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="fw-bold"><span class="oi oi-document me-2"></span>Разрешителна за риболов</h1>
-        <button class="btn btn-primary rounded-pill px-4">+ Ново Разрешително</button>
+    <div class="page-header mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="page-title mb-2">
+                    <span class="page-icon">📄</span>
+                    Разрешителна за риболов
+                </h1>
+                <p class="page-subtitle text-muted mb-0">Управление на разрешителни за риболов</p>
+            </div>
+            <button class="btn btn-primary rounded-pill px-4 btn-add-action" @onclick="ShowAddLicenseModal">
+                <span class="oi oi-plus me-2"></span>Ново Разрешително
+            </button>
+        </div>
     </div>
 
     <div class="row mb-3">
@@ -119,7 +144,122 @@
     }
 </div>
 
+<!-- Modal за добавяне на ново разрешително -->
+@if (showAddLicenseModal)
+{
+<div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title fw-bold">
+                    <span class="oi oi-document me-2"></span>Добави ново разрешително
+                </h5>
+                <button type="button" class="btn-close btn-close-white" @onclick="CloseAddLicenseModal"></button>
+            </div>
+            <div class="modal-body p-4">
+                @if (!string.IsNullOrEmpty(addLicenseErrorMessage))
+                {
+                <div class="alert alert-danger">@addLicenseErrorMessage</div>
+                }
+                @if (!string.IsNullOrEmpty(addLicenseSuccessMessage))
+                {
+                <div class="alert alert-success">@addLicenseSuccessMessage</div>
+                }
+                
+                <EditForm Model="@newLicense" OnValidSubmit="HandleAddLicense">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Номер на разрешителното *</label>
+                            <InputText @bind-Value="newLicense.LicenseNumber" class="form-control" placeholder="Напр. LIC-2024-001" />
+                            <ValidationMessage For="@(() => newLicense.LicenseNumber)" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">ID на рибар *</label>
+                            <InputNumber @bind-Value="newLicense.FisherId" class="form-control" placeholder="Въведете ID на рибар" />
+                            <ValidationMessage For="@(() => newLicense.FisherId)" />
+                            <small class="text-muted">Въведете ID на рибар от базата данни</small>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">ID на кораб</label>
+                            <InputNumber @bind-Value="newLicense.ShipId" class="form-control" placeholder="Опционално" />
+                            <small class="text-muted">Въведете ID на кораб от базата данни</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Тип разрешително</label>
+                            <InputSelect @bind-Value="newLicense.LicenseType" class="form-select">
+                                <option value="">Изберете...</option>
+                                <option value="Професионален риболов">Професионален риболов</option>
+                                <option value="Любителски риболов">Любителски риболов</option>
+                                <option value="Спортен риболов">Спортен риболов</option>
+                                <option value="Търговски риболов">Търговски риболов</option>
+                            </InputSelect>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Дата на издаване *</label>
+                            <InputDate @bind-Value="newLicense.IssueDate" class="form-control" min="@DateTime.Today.AddYears(-10).ToString("yyyy-MM-dd")" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                            <ValidationMessage For="@(() => newLicense.IssueDate)" />
+                            <small class="text-muted">Максимум до днес</small>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Дата на изтичане</label>
+                            <InputDate @bind-Value="newLicense.ExpiryDate" class="form-control" min="@(newLicense.IssueDate?.ToString("yyyy-MM-dd") ?? DateTime.Today.ToString("yyyy-MM-dd"))" max="@DateTime.Today.AddYears(10).ToString("yyyy-MM-dd")" />
+                            <ValidationMessage For="@(() => newLicense.ExpiryDate)" />
+                            <small class="text-muted">Трябва да е след датата на издаване</small>
+                            @if (newLicense.ExpiryDate.HasValue && newLicense.IssueDate.HasValue && newLicense.ExpiryDate.Value <= newLicense.IssueDate.Value)
+                            {
+                            <div class="text-danger small">Датата на изтичане трябва да е след датата на издаване!</div>
+                            }
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Статус</label>
+                            <InputSelect @bind-Value="newLicense.Status" class="form-select">
+                                <option value="Active">Активно</option>
+                                <option value="Expired">Изтекло</option>
+                                <option value="Revoked">Отнето</option>
+                                <option value="Suspended">Суспендирано</option>
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Издаващ орган</label>
+                            <InputText @bind-Value="newLicense.IssuingAuthority" class="form-control" placeholder="Напр. ИАРА Варна" />
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Бележки</label>
+                        <textarea @bind="newLicense.Notes" class="form-control" rows="3" placeholder="Допълнителни бележки..."></textarea>
+                    </div>
+                    
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseAddLicenseModal">Отказ</button>
+                        <button type="submit" class="btn btn-primary" disabled="@isAddingLicense">
+                            @if (isAddingLicense)
+                            {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                            }
+                            <span class="oi oi-check me-2"></span>Запази
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+}
+}
+
 @code {
+    private bool authChecked = false;
+    private bool isAuthenticated = false;
     private LicenseDto[]? licenses;
     private bool isLoading = false;
     private string statusFilter = "";
@@ -128,6 +268,20 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Check authentication BEFORE rendering ANYTHING
+        var token = await AuthService.GetTokenAsync();
+        isAuthenticated = !string.IsNullOrEmpty(token) && !string.IsNullOrWhiteSpace(token);
+        
+        if (!isAuthenticated)
+        {
+            // NOT authenticated - redirect to login IMMEDIATELY
+            authChecked = true;
+            NavManager.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+        
+        // Authenticated - allow rendering
+        authChecked = true;
         await LoadLicenses();
     }
 
@@ -160,11 +314,187 @@
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", $"Грешка при зареждане: {ex.Message}");
+            if (ex.Message.Contains("Failed to fetch") || ex.Message.Contains("NetworkError"))
+            {
+                // Use mock data when API is not available
+                await LoadMockLicenses();
+                await JS.InvokeVoidAsync("alert", "⚠️ API сървърът не е достъпен. Показват се примерни данни.");
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", $"Грешка при зареждане: {ex.Message}");
+            }
         }
         finally
         {
             isLoading = false;
+        }
+    }
+
+    private async Task LoadMockLicenses()
+    {
+        // Mock data for testing without API
+        await Task.Delay(500); // Simulate loading
+        licenses = new LicenseDto[]
+        {
+            new LicenseDto
+            {
+                Id = 1,
+                LicenseNumber = "LIC-2024-001",
+                FisherName = "Иван Петров",
+                ShipName = "Посейдон",
+                IssueDate = DateTime.Now.AddMonths(-6),
+                ExpiryDate = DateTime.Now.AddDays(15),
+                Status = "Active",
+                LicenseType = "Професионален риболов"
+            },
+            new LicenseDto
+            {
+                Id = 2,
+                LicenseNumber = "LIC-2024-002",
+                FisherName = "Георги Иванов",
+                ShipName = "Нептун",
+                IssueDate = DateTime.Now.AddMonths(-12),
+                ExpiryDate = DateTime.Now.AddMonths(6),
+                Status = "Active",
+                LicenseType = "Професионален риболов"
+            },
+            new LicenseDto
+            {
+                Id = 3,
+                LicenseNumber = "LIC-2024-003",
+                FisherName = "Мария Димитрова",
+                ShipName = "Тритон",
+                IssueDate = DateTime.Now.AddMonths(-3),
+                ExpiryDate = DateTime.Now.AddMonths(9),
+                Status = "Active",
+                LicenseType = "Професионален риболов"
+            }
+        };
+    }
+
+    private bool showAddLicenseModal = false;
+    private bool isAddingLicense = false;
+    private string? addLicenseErrorMessage;
+    private string? addLicenseSuccessMessage;
+    private CreateLicenseModel newLicense = new();
+
+    private void ShowAddLicenseModal()
+    {
+        showAddLicenseModal = true;
+        newLicense = new CreateLicenseModel
+        {
+            IssueDate = DateTime.Now,
+            Status = "Active"
+        };
+        addLicenseErrorMessage = null;
+        addLicenseSuccessMessage = null;
+    }
+
+    private void CloseAddLicenseModal()
+    {
+        showAddLicenseModal = false;
+        newLicense = new CreateLicenseModel();
+        addLicenseErrorMessage = null;
+        addLicenseSuccessMessage = null;
+    }
+
+    private async Task HandleAddLicense()
+    {
+        try
+        {
+            isAddingLicense = true;
+            addLicenseErrorMessage = null;
+            addLicenseSuccessMessage = null;
+
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(newLicense.LicenseNumber))
+            {
+                addLicenseErrorMessage = "Номерът на разрешителното е задължителен!";
+                isAddingLicense = false;
+                return;
+            }
+
+            if (!newLicense.FisherId.HasValue || newLicense.FisherId.Value <= 0)
+            {
+                addLicenseErrorMessage = "ID на рибар е задължително!";
+                isAddingLicense = false;
+                return;
+            }
+
+            if (!newLicense.IssueDate.HasValue)
+            {
+                addLicenseErrorMessage = "Датата на издаване е задължителна!";
+                isAddingLicense = false;
+                return;
+            }
+
+            // Validate expiration date
+            if (newLicense.ExpiryDate.HasValue)
+            {
+                if (newLicense.ExpiryDate.Value <= newLicense.IssueDate.Value)
+                {
+                    addLicenseErrorMessage = "Датата на изтичане трябва да е след датата на издаване!";
+                    isAddingLicense = false;
+                    return;
+                }
+
+                if (newLicense.ExpiryDate.Value.Year > DateTime.Now.Year + 10)
+                {
+                    addLicenseErrorMessage = $"Година на изтичане не може да бъде след {DateTime.Now.Year + 10}!";
+                    isAddingLicense = false;
+                    return;
+                }
+
+                if (newLicense.ExpiryDate.Value.Year < 1900)
+                {
+                    addLicenseErrorMessage = "Година на изтичане не може да бъде преди 1900!";
+                    isAddingLicense = false;
+                    return;
+                }
+            }
+
+            // Create DTO for API
+            var createLicenseDto = new
+            {
+                LicenseNumber = newLicense.LicenseNumber,
+                FisherId = newLicense.FisherId.Value,
+                ShipId = newLicense.ShipId,
+                IssueDate = newLicense.IssueDate.Value,
+                ExpiryDate = newLicense.ExpiryDate,
+                Status = newLicense.Status ?? "Active",
+                LicenseType = newLicense.LicenseType,
+                IssuingAuthority = newLicense.IssuingAuthority,
+                Notes = newLicense.Notes
+            };
+
+            var response = await Http.PostAsJsonAsync("api/Licenses", createLicenseDto);
+
+            if (response.IsSuccessStatusCode)
+            {
+                addLicenseSuccessMessage = "Разрешителното е добавено успешно!";
+                await Task.Delay(1500);
+                CloseAddLicenseModal();
+                await LoadLicenses(); // Reload the list
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    addLicenseErrorMessage = "Нямате права за създаване на разрешителни. Трябва да сте Admin или LicenseOfficer!";
+                }
+                else
+                {
+                    addLicenseErrorMessage = $"Грешка при добавяне: {response.StatusCode} - {errorContent}";
+                }
+                isAddingLicense = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            addLicenseErrorMessage = $"Грешка: {ex.Message}";
+            isAddingLicense = false;
         }
     }
 
@@ -180,5 +510,18 @@
         public DateTime? ExpiryDate { get; set; }
         public string Status { get; set; } = string.Empty;
         public string? LicenseType { get; set; }
+    }
+
+    public class CreateLicenseModel
+    {
+        public string LicenseNumber { get; set; } = "";
+        public int? FisherId { get; set; }
+        public int? ShipId { get; set; }
+        public DateTime? IssueDate { get; set; } = DateTime.Today;
+        public DateTime? ExpiryDate { get; set; }
+        public string? Status { get; set; } = "Active";
+        public string? LicenseType { get; set; }
+        public string? IssuingAuthority { get; set; }
+        public string? Notes { get; set; }
     }
 }
