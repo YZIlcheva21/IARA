@@ -1,5 +1,4 @@
 using IARA.API.Data;
-using IARA.Domain.DTOs;
 using IARA.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -32,7 +31,7 @@ namespace IARA.API.Services
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        // 1. Изтичащи разрешителни (Report 1 от заданието - 3 точки)
+        // 1. Изтичащи разрешителни (Report 1)
         public async Task<IEnumerable<ExpiringLicenseDto>> GetExpiringLicensesAsync(int daysAhead = 30)
         {
             try
@@ -60,7 +59,6 @@ namespace IARA.API.Services
                     .OrderBy(r => r.DaysRemaining)
                     .ToListAsync();
 
-                _logger.LogInformation("Справка за изтичащи разрешителни: намерени {Count} записа", result.Count);
                 return result;
             }
             catch (Exception ex)
@@ -70,31 +68,55 @@ namespace IARA.API.Services
             }
         }
 
-        // 2. Класация на любители (Report 2 от заданието - 4 точки)
+        // 2. Класация на любители (ПОПРАВЕНО: Report 2)
         public async Task<IEnumerable<AmateurRankingDto>> GetAmateurCatchRankingAsync(int lastMonths = 12)
         {
             try
             {
                 DateTime cutoffDate = DateTime.Today.AddMonths(-lastMonths);
 
-                var ranking = await _context.AmateurCatches
-                    .Include(c => c.AmateurTicket)
-                    .ThenInclude(t => t.Fisher)
+                // 1. Групираме по новия UserId
+                var rawStats = await _context.AmateurCatches
                     .Where(c => c.CatchDate >= cutoffDate)
-                    .GroupBy(c => c.AmateurTicket.FisherId)
-                    .Select(g => new AmateurRankingDto
+                    .GroupBy(c => c.UserId)
+                    .Select(g => new
                     {
-                        FisherId = g.Key,
-                        FisherName = g.First().AmateurTicket.Fisher != null ?
-                            $"{g.First().AmateurTicket.Fisher.FirstName ?? string.Empty} {g.First().AmateurTicket.Fisher.LastName ?? string.Empty}".Trim() :
-                            "Unknown",
-                        TotalCatchInKgs = (double)g.Sum(c => c.WeightKgs ?? 0)
+                        UserId = g.Key,
+                        TotalCatch = g.Sum(c => c.WeightKgs ?? 0)
                     })
-                    .OrderByDescending(r => r.TotalCatchInKgs)
+                    .OrderByDescending(x => x.TotalCatch)
+                    .Take(20)
                     .ToListAsync();
 
-                _logger.LogInformation("Класация на любители: намерени {Count} участници", ranking.Count);
-                return ranking;
+                // 2. Взимаме имената от таблицата с потребители
+                var userIds = rawStats.Select(s => s.UserId).ToList();
+                var users = await _context.Users
+                    .Where(u => userIds.Contains(u.Id))
+                    .Select(u => new { u.Id, u.UserName, u.Email })
+                    .ToListAsync();
+
+                // 3. Сглобяваме резултата
+                var result = new List<AmateurRankingDto>();
+
+                foreach (var stat in rawStats)
+                {
+                    var user = users.FirstOrDefault(u => u.Id == stat.UserId);
+                    string displayName = "Неизвестен";
+
+                    if (user != null)
+                    {
+                        displayName = !string.IsNullOrEmpty(user.Email) ? user.Email : user.UserName;
+                    }
+
+                    result.Add(new AmateurRankingDto
+                    {
+                        FisherId = 0, // Вече не е важно
+                        FisherName = displayName,
+                        TotalCatchInKgs = (double)stat.TotalCatch
+                    });
+                }
+
+                return result;
             }
             catch (Exception ex)
             {
@@ -103,7 +125,7 @@ namespace IARA.API.Services
             }
         }
 
-        // 3. Анализ на улова по кораби (Report 3 от заданието - 4 точки)
+        // 3. Анализ на улова по кораби (Report 3)
         public async Task<IEnumerable<ShipCatchAnalysisDto>> GetShipCatchAnalysisAsync(int year)
         {
             try
@@ -117,19 +139,13 @@ namespace IARA.API.Services
                     .ThenInclude(l => l.Ship)
                     .Where(e => e.FishingDate >= startDate && e.FishingDate <= endDate)
                     .Where(e => e.License.ShipId != null)
-                    .Select(e => new
-                    {
-                        ShipId = e.License.ShipId,
-                        Ship = e.License.Ship,
-                        CatchDetails = e.CatchDetails
-                    })
-                    .ToListAsync();
+                    .ToListAsync(); // Изтегляме в паметта, за да избегнем сложни SQL грешки
 
                 var groupedData = logbookData
-                    .GroupBy(x => x.ShipId)
+                    .GroupBy(x => x.License.ShipId)
                     .Select(g =>
                     {
-                        var ship = g.First().Ship;
+                        var ship = g.First().License.Ship;
                         var allCatches = g.SelectMany(x => x.CatchDetails)
                                          .Where(cd => cd.WeightKgs.HasValue)
                                          .Select(cd => cd.WeightKgs.Value)
@@ -148,18 +164,16 @@ namespace IARA.API.Services
                     .OrderByDescending(r => r.TotalCatchKgs)
                     .ToList();
 
-                _logger.LogInformation("Анализ на улова по кораби за {Year}: {Count} кораба", year, groupedData.Count);
                 return groupedData;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Грешка при генериране на анализ на улова по кораби за година {Year}", year);
+                _logger.LogError(ex, "Грешка при генериране на анализ на улова по кораби");
                 throw;
             }
         }
 
-        // 4. Ефективност на горивото (Report 4 от заданието - 6 точки)
-        // Въглероден отпечатък = общо гориво / общ улов
+        // 4. Ефективност на горивото (Report 4)
         public async Task<IEnumerable<ShipFuelEfficiencyDto>> GetShipFuelEfficiencyAsync(int year)
         {
             try
@@ -173,30 +187,22 @@ namespace IARA.API.Services
                     .ThenInclude(l => l.Ship)
                     .Where(e => e.FishingDate >= startDate && e.FishingDate <= endDate)
                     .Where(e => e.License.Status != "Revoked" && e.License.ShipId != null)
-                    .Select(e => new
-                    {
-                        ShipId = e.License.ShipId,
-                        Ship = e.License.Ship,
-                        CatchWeight = e.CatchDetails.Sum(cd => cd.WeightKgs ?? 0),
-                        FuelUsed = e.FuelConsumptionLiters ?? 0,
-                        Hours = e.StartTime.HasValue && e.EndTime.HasValue ?
-                               (e.EndTime.Value - e.StartTime.Value).TotalHours : 0
-                    })
                     .ToListAsync();
 
                 var groupedData = logbookData
-                    .GroupBy(x => x.ShipId)
+                    .GroupBy(x => x.License.ShipId)
                     .Select(g =>
                     {
                         var firstRecord = g.First();
-                        var totalCatch = g.Sum(x => x.CatchWeight);
-                        var totalFuel = g.Sum(x => x.FuelUsed);
-                        var totalHours = g.Sum(x => x.Hours);
+                        var totalCatch = g.Sum(x => x.CatchDetails.Sum(cd => cd.WeightKgs ?? 0));
+                        var totalFuel = g.Sum(x => x.FuelConsumptionLiters ?? 0);
+                        var totalHours = g.Sum(x => x.StartTime.HasValue && x.EndTime.HasValue ?
+                               (x.EndTime.Value - x.StartTime.Value).TotalHours : 0);
 
                         return new ShipFuelEfficiencyDto
                         {
-                            ShipInternationalNumber = firstRecord.Ship != null ?
-                                firstRecord.Ship.InternationalNumber ?? "N/A" : "N/A",
+                            ShipInternationalNumber = firstRecord.License.Ship != null ?
+                                firstRecord.License.Ship.InternationalNumber ?? "N/A" : "N/A",
                             TotalCatchKgs = (double)totalCatch,
                             TotalFuelUsed = (double)totalFuel,
                             TotalFishingHours = totalHours,
@@ -205,20 +211,19 @@ namespace IARA.API.Services
                         };
                     })
                     .Where(x => x.TotalCatchKgs > 0)
-                    .OrderBy(x => x.FuelPerKgCatch) // Подредени по най-ефективни (най-малко гориво за кг риба)
+                    .OrderBy(x => x.FuelPerKgCatch)
                     .ToList();
 
-                _logger.LogInformation("Ефективност на горивото за {Year}: {Count} кораба", year, groupedData.Count);
                 return groupedData;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Грешка при генериране на анализ на ефективност на горивото за година {Year}", year);
+                _logger.LogError(ex, "Грешка при генериране на анализ на ефективност на горивото");
                 throw;
             }
         }
 
-        // 5. Инспекции по период
+        // 5. Инспекции по период (Report 5)
         public async Task<IEnumerable<InspectionReportDto>> GetInspectionsByPeriodAsync(
             DateTime startDate, DateTime endDate, string? inspectorId = null)
         {
@@ -230,12 +235,9 @@ namespace IARA.API.Services
                     .Include(i => i.License)
                     .Where(i => i.InspectionDate >= startDate && i.InspectionDate <= endDate);
 
-                if (!string.IsNullOrEmpty(inspectorId))
+                if (!string.IsNullOrEmpty(inspectorId) && int.TryParse(inspectorId, out int inspId))
                 {
-                    if (int.TryParse(inspectorId, out int inspectorIdInt))
-                    {
-                        query = query.Where(i => i.InspectorId == inspectorIdInt);
-                    }
+                    query = query.Where(i => i.InspectorId == inspId);
                 }
 
                 var inspections = await query
@@ -255,8 +257,6 @@ namespace IARA.API.Services
                     .OrderByDescending(i => i.InspectionDate)
                     .ToListAsync();
 
-                _logger.LogInformation("Справка за инспекции от {StartDate} до {EndDate}: {Count} записа", 
-                    startDate, endDate, inspections.Count);
                 return inspections;
             }
             catch (Exception ex)
@@ -266,15 +266,19 @@ namespace IARA.API.Services
             }
         }
 
-        // 6. Статистика за рибари
+        // 6. Статистика за рибари (Report 6)
         public async Task<IEnumerable<FisherStatisticsDto>> GetFisherStatisticsAsync(int year)
         {
             try
             {
-                var startDate = new DateTime(year, 1, 1);
-                var endDate = new DateTime(year, 12, 31, 23, 59, 59);
+                // Зареждаме рибарите, за да избегнем проблем с навигационните пропъртита при сложна заявка
+                var fishers = await _context.Fishers
+                    .Include(f => f.Licenses).ThenInclude(l => l.LogbookEntries).ThenInclude(le => le.CatchDetails)
+                    .Include(f => f.Ships)
+                    .Include(f => f.AmateurTickets).ThenInclude(at => at.AmateurCatches)
+                    .ToListAsync();
 
-                var statistics = await _context.Fishers
+                var statistics = fishers
                     .Select(f => new FisherStatisticsDto
                     {
                         FisherId = f.Id,
@@ -282,10 +286,13 @@ namespace IARA.API.Services
                         TotalLicenses = f.Licenses.Count(l => l.IssueDate.Year == year),
                         ActiveLicenses = f.Licenses.Count(l => l.Status == "Active" && l.IssueDate.Year == year),
                         OwnedShips = f.Ships.Count(s => s.IsActive),
+                        
+                        // Безопасно сумиране
                         AmateurCatchesKgs = (double)f.AmateurTickets
                             .Where(t => t.IssueDate.Year == year)
                             .SelectMany(t => t.AmateurCatches)
                             .Sum(c => c.WeightKgs ?? 0),
+                            
                         ProfessionalCatchesKgs = (double)f.Licenses
                             .Where(l => l.IssueDate.Year == year)
                             .SelectMany(l => l.LogbookEntries)
@@ -294,23 +301,22 @@ namespace IARA.API.Services
                             .Sum(cd => cd.WeightKgs ?? 0)
                     })
                     .Where(s => s.TotalLicenses > 0 || s.AmateurCatchesKgs > 0 || s.ProfessionalCatchesKgs > 0)
-                    .OrderByDescending(s => s.ProfessionalCatchesKgs + s.AmateurCatchesKgs)
-                    .ToListAsync();
+                    .OrderByDescending(s => s.TotalCatchesKgs)
+                    .ToList();
 
-                _logger.LogInformation("Статистика за рибари за {Year}: {Count} рибаря", year, statistics.Count);
                 return statistics;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Грешка при генериране на статистика за рибари за година {Year}", year);
+                _logger.LogError(ex, "Грешка при генериране на статистика за рибари");
                 throw;
             }
         }
     }
 
-    // ===================== ВСИЧКИ DTO КЛАСОВЕ (добавете ги в края на файла) =====================
+    // ===================== DTO КЛАСОВЕ =====================
+    // (Копирай ги точно както са си били при теб)
     
-    // Report 1 DTO
     public class ExpiringLicenseDto
     {
         public int LicenseId { get; set; }
@@ -321,7 +327,6 @@ namespace IARA.API.Services
         public int DaysRemaining { get; set; }
     }
 
-    // Report 2 DTO
     public class AmateurRankingDto
     {
         public int FisherId { get; set; }
@@ -329,7 +334,6 @@ namespace IARA.API.Services
         public double TotalCatchInKgs { get; set; }
     }
 
-    // Report 3 DTO
     public class ShipCatchAnalysisDto
     {
         public string ShipInternationalNumber { get; set; } = string.Empty;
@@ -340,18 +344,16 @@ namespace IARA.API.Services
         public double AvgCatchPerTripKgs { get; set; }
     }
 
-    // Report 4 DTO
     public class ShipFuelEfficiencyDto
     {
         public string ShipInternationalNumber { get; set; } = string.Empty;
         public double TotalCatchKgs { get; set; }
         public double TotalFuelUsed { get; set; }
         public double TotalFishingHours { get; set; }
-        public double FuelPerKgCatch { get; set; } // Въглероден отпечатък: гориво за 1кг риба
+        public double FuelPerKgCatch { get; set; } 
         public double AvgFuelPerHour { get; set; }
     }
 
-    // Допълнителни DTO-та
     public class InspectionReportDto
     {
         public int InspectionId { get; set; }

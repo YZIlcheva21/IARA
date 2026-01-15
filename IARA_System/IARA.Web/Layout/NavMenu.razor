@@ -1,5 +1,4 @@
 ﻿@using IARA.Web.Services
-@inject AuthService AuthService
 
 <div class="top-row ps-3 navbar navbar-dark bg-primary">
     <div class="container-fluid">
@@ -53,9 +52,12 @@
 </div>
 
 @code {
-    @inject AuthService AuthService
-    @inject NavigationManager NavManager
-
+    [Inject]
+    private AuthService AuthService { get; set; } = default!;
+    
+    [Inject] 
+    public NavigationManager NavManager { get; set; }
+    
     private async Task HandleLogout()
     {
         // Clear authentication token

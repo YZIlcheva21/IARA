@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("IARA.Web")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bd739963dcedd3619e624e920b17ad60362a68d4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+cb66ad26b1ababac7fb029ec6e39ba1b1bb67513")]
 [assembly: System.Reflection.AssemblyProductAttribute("IARA.Web")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IARA.Web")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

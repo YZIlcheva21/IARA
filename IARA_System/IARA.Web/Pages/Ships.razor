@@ -517,8 +517,11 @@ private int totalPages = 1;
 private int totalCount = 0;
 private string searchTerm = "";
 
-@inject NavigationManager NavManager
-@inject IARA.Web.Services.AuthService AuthService
+[Inject] 
+public AuthService AuthService { get; set; }
+    
+[Inject] 
+public NavigationManager NavManager { get; set; }
 
 private bool authChecked = false;
 private bool isAuthenticated = false;

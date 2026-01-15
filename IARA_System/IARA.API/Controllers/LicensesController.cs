@@ -1,5 +1,4 @@
 using IARA.API.Data;
-using IARA.Domain.DTOs;
 using IARA.Domain.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,7 +7,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using IARA.Domain.DTOs;
 
 namespace IARA.API.Controllers
 {
@@ -24,6 +22,7 @@ namespace IARA.API.Controllers
             _context = context;
         }
 
+        // 1. GET: Взимане на списъка (Използва DTO за по-чисти данни)
         [HttpGet]
         public async Task<ActionResult<IEnumerable<LicenseDto>>> GetLicenses(
             [FromQuery] string? status = null,
@@ -35,7 +34,6 @@ namespace IARA.API.Controllers
                 .Include(l => l.Fisher)
                 .Include(l => l.Ship);
 
-            // Филтри
             if (!string.IsNullOrEmpty(status))
                 query = query.Where(l => l.Status == status);
             
@@ -59,7 +57,7 @@ namespace IARA.API.Controllers
                     Id = l.Id,
                     LicenseNumber = l.LicenseNumber,
                     FisherId = l.FisherId,
-                    FisherName = l.Fisher != null ? $"{l.Fisher.FirstName} {l.Fisher.LastName}" : null,
+                    FisherName = l.Fisher != null ? $"{l.Fisher.FirstName} {l.Fisher.LastName}" : "Неизвестен",
                     ShipId = l.ShipId,
                     ShipName = l.Ship != null ? l.Ship.Name : null,
                     IssueDate = l.IssueDate,
@@ -73,9 +71,131 @@ namespace IARA.API.Controllers
             return Ok(licenses);
         }
 
-        // ... други методи (GetById, Post, Put, Delete)
+        // 2. GET BY ID: Взимане на едно разрешително (За страницата Edit)
+        [HttpGet("{id}")]
+        public async Task<ActionResult<License>> GetLicense(int id)
+        {
+            // Тук връщаме целия обект. Благодарение на настройката в Program.cs (IgnoreCycles),
+            // това няма да гръмне, дори да има връзки.
+            var license = await _context.Licenses
+                .Include(l => l.Fisher)
+                .Include(l => l.Ship)
+                .FirstOrDefaultAsync(l => l.Id == id);
+
+            if (license == null)
+            {
+                return NotFound();
+            }
+
+            return license;
+        }
+
+        // 3. POST: Създаване на ново разрешително
+        [HttpPost]
+        public async Task<ActionResult<License>> PostLicense(License license)
+        {
+            // 👇 КЛЮЧОВ МОМЕНТ ЗА СПРАВЯНЕ С ГРЕШКА 400 👇
+            // Премахваме валидацията за навигационните обекти, защото клиентът изпраща само ID-та
+            ModelState.Remove("Fisher");
+            ModelState.Remove("Ship");
+            ModelState.Remove("Inspections");
+            ModelState.Remove("LogbookEntries");
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            // Проверка дали рибарят съществува
+            if (license.FisherId > 0) 
+            {
+                var fisherExists = await _context.Fishers.AnyAsync(f => f.Id == license.FisherId);
+                if (!fisherExists)
+                {
+                    return BadRequest($"Рибар с ID {license.FisherId} не съществува в базата.");
+                }
+            }
+
+            // Проверка дали корабът съществува (ако е подаден)
+            if (license.ShipId.HasValue && license.ShipId.Value > 0)
+            {
+                var shipExists = await _context.Ships.AnyAsync(s => s.Id == license.ShipId);
+                if (!shipExists)
+                {
+                    return BadRequest($"Кораб с ID {license.ShipId} не съществува в базата.");
+                }
+            }
+            else
+            {
+                // Уверяваме се, че е null, ако е <= 0
+                license.ShipId = null;
+            }
+
+            _context.Licenses.Add(license);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction("GetLicense", new { id = license.Id }, license);
+        }
+
+        // 4. PUT: Редакция на съществуващо разрешително
+        [HttpPut("{id}")]
+        public async Task<IActionResult> PutLicense(int id, License license)
+        {
+            if (id != license.Id)
+            {
+                return BadRequest("ID в URL не съвпада с ID в тялото на заявката.");
+            }
+
+            // 👇 КЛЮЧОВ МОМЕНТ И ТУК 👇
+            ModelState.Remove("Fisher");
+            ModelState.Remove("Ship");
+            ModelState.Remove("Inspections");
+            ModelState.Remove("LogbookEntries");
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            _context.Entry(license).State = EntityState.Modified;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!_context.Licenses.Any(e => e.Id == id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return NoContent();
+        }
+
+        // 5. DELETE: Изтриване
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteLicense(int id)
+        {
+            var license = await _context.Licenses.FindAsync(id);
+            if (license == null)
+            {
+                return NotFound();
+            }
+
+            _context.Licenses.Remove(license);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
     }
 
+    // DTO класът за списъка
     public class LicenseDto
     {
         public int Id { get; set; }

@@ -11,12 +11,12 @@
 
 @if (!authChecked)
 {
-    @* DO NOT RENDER ANYTHING until auth is checked *@
+    @* Чакаме проверка на автентикацията *@
     <div style="display: none;"></div>
 }
 else if (!isAuthenticated)
 {
-    @* NOT AUTHENTICATED - redirect will happen *@
+    @* Не сме логнати - ще се пренасочи *@
     <div style="display: none;"></div>
 }
 else
@@ -131,9 +131,13 @@ else
                         }
                     </td>
                     <td>@(license.LicenseType ?? "N/A")</td>
+                    
                     <td>
-                        <button class="btn btn-sm btn-outline-primary" title="Преглед">
-                            <span class="oi oi-eye"></span>
+                        <button class="btn btn-sm btn-outline-warning me-2" @onclick="() => EditLicense(license.Id)" title="Редактирай">
+                            ✏️
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteLicense(license.Id)" title="Изтрий">
+                            🗑️
                         </button>
                     </td>
                 </tr>
@@ -144,7 +148,6 @@ else
     }
 </div>
 
-<!-- Modal за добавяне на ново разрешително -->
 @if (showAddLicenseModal)
 {
 <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
@@ -268,19 +271,16 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // Check authentication BEFORE rendering ANYTHING
         var token = await AuthService.GetTokenAsync();
         isAuthenticated = !string.IsNullOrEmpty(token) && !string.IsNullOrWhiteSpace(token);
         
         if (!isAuthenticated)
         {
-            // NOT authenticated - redirect to login IMMEDIATELY
             authChecked = true;
             NavManager.NavigateTo("/login", forceLoad: true);
             return;
         }
         
-        // Authenticated - allow rendering
         authChecked = true;
         await LoadLicenses();
     }
@@ -302,7 +302,6 @@ else
             var response = await Http.GetFromJsonAsync<LicenseDto[]>($"api/Licenses{queryString}");
             licenses = response;
             
-            // Apply client-side search if needed
             if (!string.IsNullOrEmpty(searchTerm) && licenses != null)
             {
                 licenses = licenses.Where(l => 
@@ -316,7 +315,6 @@ else
         {
             if (ex.Message.Contains("Failed to fetch") || ex.Message.Contains("NetworkError"))
             {
-                // Use mock data when API is not available
                 await LoadMockLicenses();
                 await JS.InvokeVoidAsync("alert", "⚠️ API сървърът не е достъпен. Показват се примерни данни.");
             }
@@ -333,45 +331,53 @@ else
 
     private async Task LoadMockLicenses()
     {
-        // Mock data for testing without API
-        await Task.Delay(500); // Simulate loading
+        await Task.Delay(500); 
         licenses = new LicenseDto[]
         {
-            new LicenseDto
-            {
-                Id = 1,
-                LicenseNumber = "LIC-2024-001",
-                FisherName = "Иван Петров",
-                ShipName = "Посейдон",
-                IssueDate = DateTime.Now.AddMonths(-6),
-                ExpiryDate = DateTime.Now.AddDays(15),
-                Status = "Active",
-                LicenseType = "Професионален риболов"
-            },
-            new LicenseDto
-            {
-                Id = 2,
-                LicenseNumber = "LIC-2024-002",
-                FisherName = "Георги Иванов",
-                ShipName = "Нептун",
-                IssueDate = DateTime.Now.AddMonths(-12),
-                ExpiryDate = DateTime.Now.AddMonths(6),
-                Status = "Active",
-                LicenseType = "Професионален риболов"
-            },
-            new LicenseDto
-            {
-                Id = 3,
-                LicenseNumber = "LIC-2024-003",
-                FisherName = "Мария Димитрова",
-                ShipName = "Тритон",
-                IssueDate = DateTime.Now.AddMonths(-3),
-                ExpiryDate = DateTime.Now.AddMonths(9),
-                Status = "Active",
-                LicenseType = "Професионален риболов"
-            }
+            new LicenseDto { Id = 1, LicenseNumber = "LIC-2024-001", FisherName = "Иван Петров", IssueDate = DateTime.Now.AddMonths(-6), ExpiryDate = DateTime.Now.AddDays(15), Status = "Active", LicenseType = "Професионален" },
+            new LicenseDto { Id = 2, LicenseNumber = "LIC-2024-002", FisherName = "Георги Иванов", IssueDate = DateTime.Now.AddMonths(-12), ExpiryDate = DateTime.Now.AddMonths(6), Status = "Active", LicenseType = "Професионален" }
         };
     }
+
+    // 👇 НОВИ МЕТОДИ ЗА БУТОНИТЕ 👇
+    private void EditLicense(int id)
+    {
+        // Навигация към страница за редакция (тази страница трябва да се създаде)
+        NavManager.NavigateTo($"/licenses/edit/{id}");
+    }
+
+    private async Task DeleteLicense(int id)
+    {
+        // 1. Потвърждение
+        bool confirmed = await JS.InvokeAsync<bool>("confirm", "Сигурни ли сте, че искате да изтриете това разрешително?");
+        
+        if (confirmed)
+        {
+            try
+            {
+                // 2. Изтриване от сървъра
+                var response = await Http.DeleteAsync($"api/Licenses/{id}");
+                if (response.IsSuccessStatusCode)
+                {
+                    // 3. Обновяване на екрана
+                    if (licenses != null)
+                    {
+                        licenses = licenses.Where(l => l.Id != id).ToArray();
+                    }
+                    await JS.InvokeVoidAsync("alert", "Разрешителното беше изтрито успешно!");
+                }
+                else
+                {
+                    await JS.InvokeVoidAsync("alert", "Грешка при изтриване. Опитайте отново.");
+                }
+            }
+            catch (Exception ex)
+            {
+                await JS.InvokeVoidAsync("alert", $"Възникна грешка: {ex.Message}");
+            }
+        }
+    }
+    // 👆 КРАЙ НА НОВИТЕ МЕТОДИ 👆
 
     private bool showAddLicenseModal = false;
     private bool isAddingLicense = false;
@@ -382,11 +388,7 @@ else
     private void ShowAddLicenseModal()
     {
         showAddLicenseModal = true;
-        newLicense = new CreateLicenseModel
-        {
-            IssueDate = DateTime.Now,
-            Status = "Active"
-        };
+        newLicense = new CreateLicenseModel { IssueDate = DateTime.Now, Status = "Active" };
         addLicenseErrorMessage = null;
         addLicenseSuccessMessage = null;
     }
@@ -407,7 +409,6 @@ else
             addLicenseErrorMessage = null;
             addLicenseSuccessMessage = null;
 
-            // Validate required fields
             if (string.IsNullOrWhiteSpace(newLicense.LicenseNumber))
             {
                 addLicenseErrorMessage = "Номерът на разрешителното е задължителен!";
@@ -429,32 +430,13 @@ else
                 return;
             }
 
-            // Validate expiration date
-            if (newLicense.ExpiryDate.HasValue)
+            if (newLicense.ExpiryDate.HasValue && newLicense.ExpiryDate.Value <= newLicense.IssueDate.Value)
             {
-                if (newLicense.ExpiryDate.Value <= newLicense.IssueDate.Value)
-                {
-                    addLicenseErrorMessage = "Датата на изтичане трябва да е след датата на издаване!";
-                    isAddingLicense = false;
-                    return;
-                }
-
-                if (newLicense.ExpiryDate.Value.Year > DateTime.Now.Year + 10)
-                {
-                    addLicenseErrorMessage = $"Година на изтичане не може да бъде след {DateTime.Now.Year + 10}!";
-                    isAddingLicense = false;
-                    return;
-                }
-
-                if (newLicense.ExpiryDate.Value.Year < 1900)
-                {
-                    addLicenseErrorMessage = "Година на изтичане не може да бъде преди 1900!";
-                    isAddingLicense = false;
-                    return;
-                }
+                addLicenseErrorMessage = "Датата на изтичане трябва да е след датата на издаване!";
+                isAddingLicense = false;
+                return;
             }
 
-            // Create DTO for API
             var createLicenseDto = new
             {
                 LicenseNumber = newLicense.LicenseNumber,
@@ -475,19 +457,12 @@ else
                 addLicenseSuccessMessage = "Разрешителното е добавено успешно!";
                 await Task.Delay(1500);
                 CloseAddLicenseModal();
-                await LoadLicenses(); // Reload the list
+                await LoadLicenses();
             }
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-                {
-                    addLicenseErrorMessage = "Нямате права за създаване на разрешителни. Трябва да сте Admin или LicenseOfficer!";
-                }
-                else
-                {
-                    addLicenseErrorMessage = $"Грешка при добавяне: {response.StatusCode} - {errorContent}";
-                }
+                addLicenseErrorMessage = $"Грешка при добавяне: {response.StatusCode} - {errorContent}";
                 isAddingLicense = false;
             }
         }

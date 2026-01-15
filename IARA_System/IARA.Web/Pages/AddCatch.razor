@@ -39,24 +39,29 @@ else
             <EditForm Model="@catchModel" OnValidSubmit="HandleSubmit">
                 <div class="mb-3">
                     <label class="form-label fw-bold">Вид Риба</label>
-                    <InputSelect @bind-Value="catchModel.FishType" class="form-select p-3">
+                    @* 👇 ПРОМЯНА 1: FishSpecies *@
+                    <InputSelect @bind-Value="catchModel.FishSpecies" class="form-select p-3">
                         <option value="">Изберете вид...</option>
                         <option value="Шаран">Шаран</option>
                         <option value="Скумрия">Скумрия</option>
                         <option value="Калкан">Калкан</option>
+                        <option value="Пъстърва">Пъстърва</option>
                     </InputSelect>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-bold">Тегло (кг) *</label>
-                    <InputNumber @bind-Value="catchModel.Weight" class="form-control p-3" placeholder="0.00" min="0.01" step="0.01" />
+                    @* 👇 ПРОМЯНА 2: WeightKgs *@
+                    <InputNumber @bind-Value="catchModel.WeightKgs" class="form-control p-3" placeholder="0.00" min="0.01" step="0.01" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Място на улов</label>
-                    <InputText @bind-Value="catchModel.Location" class="form-control p-3" placeholder="Напр. Черно море - Варна" />
+                    @* 👇 ПРОМЯНА 3: FishingLocation *@
+                    <InputText @bind-Value="catchModel.FishingLocation" class="form-control p-3" placeholder="Напр. Черно море - Варна" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">Метод на улов</label>
-                    <InputText @bind-Value="catchModel.Method" class="form-control p-3" placeholder="Напр. Въдица, Мрежа" />
+                    @* 👇 ПРОМЯНА 4: FishingMethod *@
+                    <InputText @bind-Value="catchModel.FishingMethod" class="form-control p-3" placeholder="Напр. Въдица, Мрежа" />
                 </div>
                 <button type="submit" class="btn btn-primary w-100 p-3 fw-bold rounded-pill" disabled="@isSubmitting">
                     @if (isSubmitting)
@@ -84,19 +89,16 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        // Check authentication BEFORE rendering ANYTHING
         var token = await AuthService.GetTokenAsync();
         isAuthenticated = !string.IsNullOrEmpty(token) && !string.IsNullOrWhiteSpace(token);
         
         if (!isAuthenticated)
         {
-            // NOT authenticated - redirect to login IMMEDIATELY
             authChecked = true;
             NavManager.NavigateTo("/login", forceLoad: true);
             return;
         }
         
-        // Authenticated - allow rendering
         authChecked = true;
     }
 
@@ -106,31 +108,26 @@ else
             errorMessage = null;
             successMessage = null;
 
-            if (string.IsNullOrWhiteSpace(catchModel.FishType))
+            // Валидация с новите имена
+            if (string.IsNullOrWhiteSpace(catchModel.FishSpecies))
             {
                 errorMessage = "Моля изберете вид риба!";
                 return;
             }
 
-            if (catchModel.Weight <= 0)
+            if (catchModel.WeightKgs <= 0)
             {
                 errorMessage = "Теглото трябва да бъде по-голямо от 0!";
                 return;
             }
 
-            var createDto = new
-            {
-                FishType = catchModel.FishType,
-                Weight = catchModel.Weight,
-                Location = catchModel.Location,
-                Method = catchModel.Method
-            };
-
-            var response = await Http.PostAsJsonAsync("api/AmateurCatches", createDto);
+            // Вече пращаме директно модела, защото имената съвпадат с API-то
+            var response = await Http.PostAsJsonAsync("api/AmateurCatches", catchModel);
             
             if (response.IsSuccessStatusCode) {
                 successMessage = "Успешно записан улов!";
                 catchModel = new CatchModel();
+                StateHasChanged(); // Обновяваме UI веднага
                 await Task.Delay(2000);
                 successMessage = null;
             } else {
@@ -138,18 +135,20 @@ else
                 errorMessage = $"Грешка: {response.StatusCode} - {errorContent}";
             }
         } catch (Exception ex) {
-            errorMessage = ex.Message.Contains("Failed to fetch") || ex.Message.Contains("NetworkError")
-                ? "API сървърът не е достъпен. Моля стартирайте IARA.API проекта първо!"
+            errorMessage = ex.Message.Contains("Failed to fetch") 
+                ? "API сървърът не е достъпен." 
                 : $"Грешка: {ex.Message}";
         } finally {
             isSubmitting = false;
         }
     }
+
+    // Класът е обновен да съвпада с IARA.Domain
     public class CatchModel 
     { 
-        public string FishType { get; set; } = ""; 
-        public double Weight { get; set; }
-        public string? Location { get; set; }
-        public string? Method { get; set; }
+        public string FishSpecies { get; set; } = ""; // Беше FishType
+        public decimal? WeightKgs { get; set; }       // Беше Weight (double -> decimal?)
+        public string? FishingLocation { get; set; }  // Беше Location
+        public string? FishingMethod { get; set; }    // Беше Method
     }
 }

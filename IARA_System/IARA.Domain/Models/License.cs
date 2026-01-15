@@ -16,7 +16,7 @@ namespace IARA.Domain.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Навигационни свойства
-        public virtual Fisher Fisher { get; set; }
+        public virtual Fisher? Fisher { get; set; }
         public virtual Ship? Ship { get; set; }
         public virtual ICollection<LogbookEntry> LogbookEntries { get; set; } = new List<LogbookEntry>();
         public virtual ICollection<Inspection> Inspections { get; set; } = new List<Inspection>();

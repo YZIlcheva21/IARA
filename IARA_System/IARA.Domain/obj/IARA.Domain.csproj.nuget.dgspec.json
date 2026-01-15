@@ -1,30 +1,30 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\7\\Downloads\\IARA\\IARA_System\\IARA.Domain\\IARA.Domain.csproj": {}
+    "C:\\Users\\YZIlcheva21\\source\\repos\\IARA\\IARA_System\\IARA.Domain\\IARA.Domain.csproj": {}
   },
   "projects": {
-    "C:\\Users\\7\\Downloads\\IARA\\IARA_System\\IARA.Domain\\IARA.Domain.csproj": {
+    "C:\\Users\\YZIlcheva21\\source\\repos\\IARA\\IARA_System\\IARA.Domain\\IARA.Domain.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\7\\Downloads\\IARA\\IARA_System\\IARA.Domain\\IARA.Domain.csproj",
+        "projectUniqueName": "C:\\Users\\YZIlcheva21\\source\\repos\\IARA\\IARA_System\\IARA.Domain\\IARA.Domain.csproj",
         "projectName": "IARA.Domain",
-        "projectPath": "C:\\Users\\7\\Downloads\\IARA\\IARA_System\\IARA.Domain\\IARA.Domain.csproj",
-        "packagesPath": "C:\\Users\\7\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\7\\Downloads\\IARA\\IARA_System\\IARA.Domain\\obj\\",
+        "projectPath": "C:\\Users\\YZIlcheva21\\source\\repos\\IARA\\IARA_System\\IARA.Domain\\IARA.Domain.csproj",
+        "packagesPath": "C:\\Users\\YZIlcheva21\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\YZIlcheva21\\source\\repos\\IARA\\IARA_System\\IARA.Domain\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\7\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\YZIlcheva21\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
-          "net8.0"
+          "net9.0"
         ],
         "sources": {
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
-          "net8.0": {
-            "targetAlias": "net8.0",
+          "net9.0": {
+            "targetAlias": "net9.0",
             "projectReferences": {}
           }
         },
@@ -38,11 +38,11 @@
           "auditLevel": "low",
           "auditMode": "direct"
         },
-        "SdkAnalysisLevel": "10.0.100"
+        "SdkAnalysisLevel": "9.0.100"
       },
       "frameworks": {
-        "net8.0": {
-          "targetAlias": "net8.0",
+        "net9.0": {
+          "targetAlias": "net9.0",
           "dependencies": {
             "Microsoft.Extensions.Identity.Stores": {
               "target": "Package",
@@ -65,7 +65,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Users\\7\\.dotnet\\sdk\\10.0.101/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.101/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
